@@ -64,6 +64,38 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+#The administrator's page
+@app.route('/manager')
+@login_required
+def manager():
+    if current_user.role != 'admin':
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('index'))
+    users = User.query.all()
+    return render_template('manager.html', users=users)
+
+#Creating a new user
+@app.route('/manager/create_user', methods=['POST'])
+@login_required
+def create_user():
+    if current_user.role != 'admin':
+        return "Forbidden", 403
+    username = request.form['username']
+    password = request.form['password']
+    role = request.form.get('role', 'user')
+
+    if User.query.filter_by(username=username).first():
+        flash('Пользователь с таким именем уже существует', 'danger')
+    else:
+        new_user = User(username=username, role=role)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash(f'Пользователь {username} создан', 'success')
+    return redirect(url_for('manager'))
+
+
+
 
 
 
