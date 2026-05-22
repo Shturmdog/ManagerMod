@@ -94,6 +94,20 @@ def create_user():
         flash(f'Пользователь {username} создан', 'success')
     return redirect(url_for('manager'))
 
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        return render_template('index.html', user=current_user)
+    else:
+        return redirect(url_for('login'))
+
+@app.route('/home')
+@login_required
+def home():
+    return render_template('home.html', user=current_user)
+
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
 
