@@ -1,0 +1,19 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Главная страница</title>
+</head>
+<body>
+    <h1>Добро пожаловать в приложение!</h1>
+    {% if current_user.is_authenticated %}
+        <p>Вы вошли как {{ current_user.username }}</p>
+        <a href="{{ url_for('logout') }}">Выйти</a>
+        {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('manager') }}">Панель администратора</a>
+        {% endif %}
+    {% else %}
+        <a href="{{ url_for('login') }}">Войти</a>
+    {% endif %}
+</body>
+</html>

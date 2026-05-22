@@ -1,0 +1,30 @@
+<!-- templates/manager.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Менеджер пользователей</title>
+</head>
+<body>
+    <h1>Панель менеджера (администратора)</h1>
+    <p>Вы вошли как: {{ current_user.username }}</p>
+    <a href="{{ url_for('logout') }}">Выйти</a>
+
+    <h2>Создать нового пользователя</h2>
+    <form method="POST" action="{{ url_for('create_user') }}">
+        <input type="text" name="username" placeholder="Имя пользователя" required><br>
+        <input type="password" name="password" placeholder="Пароль" required><br>
+        <select name="role">
+            <option value="user">Пользователь</option>
+            <option value="admin">Администратор</option>
+        </select><br>
+        <button type="submit">Создать</button>
+    </form>
+
+    <h2>Существующие пользователи</h2>
+    <ul>
+        {% for user in users %}
+            <li>{{ user.username }} ({{ user.role }})</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
