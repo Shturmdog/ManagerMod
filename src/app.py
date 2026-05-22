@@ -57,6 +57,13 @@ def login():
             flash('Неверное имя или пароль', 'danger')
     return render_template('login.html')
 
+#Logout of the system
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 
 
 
