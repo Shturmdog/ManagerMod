@@ -41,7 +41,22 @@ with app.app_context():
         admin.set_password('admin123')
         db.session.add(admin)
         db.session.commit()
-        print("Создан администратор: admin / admin123")
+
+#login page
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            login_user(user)
+            flash('Успешный вход!', 'success')
+            return redirect(url_for('manager' if user.role == 'admin' else 'index'))
+        else:
+            flash('Неверное имя или пароль', 'danger')
+    return render_template('login.html')
+
 
 
 
