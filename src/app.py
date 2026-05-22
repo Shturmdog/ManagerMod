@@ -29,4 +29,19 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+#Create tables and add a test admin
+with app.app_context():
+    db.create_all()
+    if not User.query.filter_by(username='admin').first():
+        admin = User(username='admin', role='admin')
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+        print("Создан администратор: admin / admin123")
+
+
 
