@@ -13,6 +13,8 @@
             <a href="{{ url_for('manager') }}">Панель администратора</a><br>
         {% elif current_user.role == 'cook' %}
             <a href="{{ url_for('cook_dashboard') }}">Панель повара</a><br>
+        {% elif current_user.role == 'waiter' %}
+            <a href="{{ url_for('waiter_dashboard') }}">Панель официанта</a><br>
         {% endif %}
     {% else %}
         <a href="{{ url_for('login') }}">Войти</a>
