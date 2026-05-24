@@ -47,6 +47,9 @@ class MenuItem(db.Model):
 
 class Order(db.Model):
     __tablename__ = 'orders'
+    id = db.Column(db.Integer, primary_key=True)
+    waiter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_items.id'), nullable=False)
 
 @login_manager.user_loader
 def load_user(user_id):
