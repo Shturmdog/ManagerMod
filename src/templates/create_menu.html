@@ -1,0 +1,29 @@
+<!-- templates/create_menu.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Создание блюда</title>
+</head>
+<body>
+    <h1>Добавить новое блюдо</h1>
+    <form method="POST">
+        <label for="name">Название блюда:</label>
+        <input type="text" name="name" id="name" required><br><br>
+
+        <label for="price">Цена (руб):</label>
+        <input type="number" step="0.01" name="price" id="price" required><br><br>
+
+        <label for="category">Категория:</label>
+        <select name="category" id="category">
+            <option value="soup">Суп</option>
+            <option value="salad">Салат</option>
+            <option value="main">Горячее</option>
+            <option value="dessert">Десерт</option>
+            <option value="drink">Напиток</option>
+        </select><br><br>
+
+        <button type="submit">Сохранить блюдо</button>
+    </form>
+    <a href="{{ url_for('cook_dashboard') }}">← Вернуться в панель повара</a>
+</body>
+</html>
