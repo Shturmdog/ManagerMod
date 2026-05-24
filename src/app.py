@@ -262,6 +262,34 @@ def create_order():
         flash(f'Заказ №{order.id} создан и отправлен повару', 'success')
         return redirect(url_for('waiter_dashboard'))
 
+@app.route('/waiter/orders')
+@login_required
+def waiter_orders():
+    if current_user.role != 'waiter':
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('index'))
+    # Активные заказы (не завершённые) и готовые заказы
+    active_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status != 'completed').order_by(Order.created_at.desc()).all()
+    completed_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status == 'completed').order_by(Order.created_at.desc()).limit(20).all()
+    return render_template('waiter_orders.html', active_orders=active_orders, completed_orders=completed_orders)
+
+@app.route('/waiter/complete_order/<int:order_id>', methods=['POST'])
+@login_required
+def complete_order(order_id):
+    if current_user.role != 'waiter':
+        return "Forbidden", 403
+    order = Order.query.get_or_404(order_id)
+    if order.waiter_id != current_user.id:
+        flash('Это не ваш заказ', 'danger')
+        return redirect(url_for('waiter_orders'))
+    if order.status != 'ready':
+        flash('Заказ ещё не готов', 'warning')
+        return redirect(url_for('waiter_orders'))
+    order.status = 'completed'
+    db.session.commit()
+    flash(f'Заказ №{order.id} завершён', 'success')
+    return redirect(url_for('waiter_orders'))
+
 @app.route('/')
 def index():
     if current_user.is_authenticated:
