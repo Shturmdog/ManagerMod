@@ -1,0 +1,35 @@
+<!-- templates/cook_dashboard.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Панель повара</title>
+</head>
+<body>
+    <h1>Панель повара</h1>
+    <p>Здравствуйте, {{ current_user.username }}!</p>
+
+    <a href="{{ url_for('create_menu') }}">
+        <button>➕ Создать новое меню</button>
+    </a>
+
+    <h2>Мои блюда</h2>
+    {% if dishes %}
+        <ul>
+        {% for dish in dishes %}
+            <li>
+                {{ dish.name }} — {{ dish.price }} руб. ({{ dish.category }})
+                {% if dish.is_approved %}
+                    <span style="color:green;">✓ Утверждено</span>
+                {% else %}
+                    <span style="color:orange;">⏳ Ожидает утверждения</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>У вас пока нет добавленных блюд.</p>
+    {% endif %}
+
+    <a href="{{ url_for('logout') }}">Выйти</a>
+</body>
+</html>
