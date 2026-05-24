@@ -147,6 +147,7 @@ def pending_menu():
 def approve_item(item_id):
     if current_user.role != 'admin':
         return "Forbidden", 403
+
     item = MenuItem.query.get_or_404(item_id)
     item.is_approved = True
     item.approved_by = current_user.id
@@ -268,6 +269,11 @@ def create_order():
     if current_user.role != 'waiter':
         return 'Forbidden', 403
 
+    table_number = request.form.get('table_number')
+    if not table_number:
+        flash('Не указан номер столика', 'danger')
+        return redirect(url_for('waiter_dashboard'))
+
     items = {}
     for key in request.form:
         if key.startswith('qty_'):
@@ -276,20 +282,21 @@ def create_order():
             if qty > 0:
                 items[menu_item_id] = qty
 
-        if not items:
-            flash('Не выбрано ни одно блюдо', 'danger')
-            return redirect(url_for('waiter_dashboard'))
-
-        order = Order(waiter_id=current_user.id, status='waiting',)
-        db.session.add(order)
-        db.session.commit()
-
-        for menu_item_id, quantity in items.items():
-            order_item = OrderItem(order_id=order.id, menu_item_id=menu_item_id, quantity=quantity)
-            db.session.add(order_item)
-        db.session.commit()
-        flash(f'Заказ №{order.id} создан и отправлен повару', 'success')
+    if not items:
+        flash('Не выбрано ни одно блюдо', 'danger')
         return redirect(url_for('waiter_dashboard'))
+
+    order = Order(waiter_id=current_user.id, table_number=int(table_number), status='waiting')
+    db.session.add(order)
+    db.session.commit()
+
+    for menu_item_id, quantity in items.items():
+        order_item = OrderItem(order_id=order.id, menu_item_id=menu_item_id, quantity=quantity)
+        db.session.add(order_item)
+
+    db.session.commit()
+    flash(f'Заказ №{order.id} создан для стола {table_number} и отправлен повару', 'success')
+    return redirect(url_for('waiter_dashboard'))
 
 @app.route('/waiter/orders')
 @login_required
@@ -297,7 +304,6 @@ def waiter_orders():
     if current_user.role != 'waiter':
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
-    # Активные заказы (не завершённые) и готовые заказы
     active_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status != 'completed').order_by(Order.created_at.desc()).all()
     completed_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status == 'completed').order_by(Order.created_at.desc()).limit(20).all()
     return render_template('waiter_orders.html', active_orders=active_orders, completed_orders=completed_orders)
