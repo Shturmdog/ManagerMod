@@ -7,17 +7,68 @@
 <body>
     <h1>Панель повара</h1>
     <p>Здравствуйте, {{ current_user.username }}!</p>
+    <a href="{{ url_for('logout') }}">Выйти</a> |
+    <a href="{{ url_for('create_menu') }}">➕ Создать блюдо</a>
+    <hr>
 
-    <a href="{{ url_for('create_menu') }}">
-        <button>➕ Создать новое меню</button>
-    </a>
+    <!-- БЛОК ЗАКАЗОВ -->
+    <h2>⏳ Ожидающие заказы</h2>
+    {% if waiting_orders %}
+        {% for order in waiting_orders %}
+        <div style="border:1px solid #ccc; margin:10px; padding:10px;">
+            <b>Заказ №{{ order.id }}</b> от официанта {{ order.waiter.username }} (стол №{{ order.table_number }})<br>
+            <b>Состав:</b>
+            <ul>
+            {% for item in order.items %}
+                <li>{{ item.menu_item.name }} x {{ item.quantity }}</li>
+            {% endfor %}
+            </ul>
+            <form method="POST" action="{{ url_for('start_cooking', order_id=order.id) }}">
+                <button type="submit">🍳 Начать готовить</button>
+            </form>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>Нет ожидающих заказов.</p>
+    {% endif %}
 
-    <h2>Мои блюда</h2>
+    <h2>🔥 В процессе приготовления</h2>
+    {% if cooking_orders %}
+        {% for order in cooking_orders %}
+        <div style="border:1px solid orange; margin:10px; padding:10px;">
+            <b>Заказ №{{ order.id }}</b> от {{ order.waiter.username }}<br>
+            Состав:
+            <ul>
+            {% for item in order.items %}
+                <li>{{ item.menu_item.name }} x {{ item.quantity }}</li>
+            {% endfor %}
+            </ul>
+            <form method="POST" action="{{ url_for('mark_ready', order_id=order.id) }}">
+                <button type="submit">✅ Готово</button>
+            </form>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>Нет заказов в готовке.</p>
+    {% endif %}
+
+    <h2>🍽️ Готовые к выдаче</h2>
+    {% if ready_orders %}
+        {% for order in ready_orders %}
+        <div style="border:1px solid green; margin:10px; padding:10px;">
+            <b>Заказ №{{ order.id }}</b> готов с {{ order.updated_at.strftime('%H:%M') }}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>Нет готовых заказов.</p>
+    {% endif %}
+
+    <hr>
+    <h2>📋 Мои блюда (меню)</h2>
     {% if dishes %}
         <ul>
         {% for dish in dishes %}
-            <li>
-                {{ dish.name }} — {{ dish.price }} руб. ({{ dish.category }})
+            <li>{{ dish.name }} — {{ dish.price }} руб. ({{ dish.category }})
                 {% if dish.is_approved %}
                     <span style="color:green;">✓ Утверждено</span>
                 {% else %}
@@ -27,9 +78,7 @@
         {% endfor %}
         </ul>
     {% else %}
-        <p>У вас пока нет добавленных блюд.</p>
+        <p>Вы ещё не добавили ни одного блюда.</p>
     {% endif %}
-
-    <a href="{{ url_for('logout') }}">Выйти</a>
 </body>
 </html>
