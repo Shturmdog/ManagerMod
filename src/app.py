@@ -53,6 +53,7 @@ class Order(db.Model):
     status = db.Column(db.String(20), default='waiting')
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    table_number = db.Column(db.Integer, nullable=False)
 
     waiter = db.relationship('User', foreign_keys=[waiter_id], backref='orders')
 
@@ -223,6 +224,34 @@ def create_menu():
 
     return render_template('create_menu.html')
 
+@app.route('/cook/start_cooking/<int:order_id>', methods=['POST'])
+@login_required
+def start_cooking(order_id):
+    if current_user.role not in ['cook', 'admin']:
+        return "Forbidden", 403
+    order = Order.query.get_or_404(order_id)
+    if order.status == 'waiting':
+        order.status = 'cooking'
+        db.session.commit()
+        flash(f'Заказ №{order.id} начат приготовление', 'info')
+    else:
+        flash('Невозможно начать готовку', 'warning')
+    return redirect(url_for('cook_dashboard'))
+
+@app.route('/cook/mark_ready/<int:order_id>', methods=['POST'])
+@login_required
+def mark_ready(order_id):
+    if current_user.role not in ['cook', 'admin']:
+        return "Forbidden", 403
+    order = Order.query.get_or_404(order_id)
+    if order.status in ['waiting', 'cooking']:
+        order.status = 'ready'
+        db.session.commit()
+        flash(f'Заказ №{order.id} готов к выдаче', 'success')
+    else:
+        flash('Некорректный статус', 'warning')
+    return redirect(url_for('cook_dashboard'))
+
 @app.route('/waiter/dashboard')
 @login_required
 def waiter_dashboard():
@@ -233,7 +262,7 @@ def waiter_dashboard():
     menu_items = MenuItem.query.filter_by(is_approved=True).all()
     return render_template('waiter_dashboard.html', menu_items=menu_items)
 
-@app.route('/waiter/create_order', methods='POST')
+@app.route('/waiter/create_order', methods=['POST'])
 @login_required
 def create_order():
     if current_user.role != 'waiter':
