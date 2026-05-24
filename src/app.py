@@ -50,6 +50,10 @@ class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     waiter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_items.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1)
+
+    order = db.relationship('Order', backref='items')
+    menu_item = db.relationship('MenuItem', backref='order_items')
 
 @login_manager.user_loader
 def load_user(user_id):
