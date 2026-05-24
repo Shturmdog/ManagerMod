@@ -223,6 +223,45 @@ def create_menu():
 
     return render_template('create_menu.html')
 
+@app.route('/waiter/dashboard')
+@login_required
+def waiter_dashboard():
+    if current_user.role != 'waiter':
+        flash('Доступ запрещен', 'danger')
+        return redirect(url_for('index'))
+
+    menu_items = MenuItem.query.filter_by(is_approved=True).all()
+    return render_template('waiter_dashboard.html', menu_items=menu_items)
+
+@app.route('/waiter/create_order', methods='POST')
+@login_required
+def create_order():
+    if current_user.role != 'waiter':
+        return 'Forbidden', 403
+
+    items = {}
+    for key in request.form:
+        if key.startswith('qty_'):
+            menu_item_id = int(key.split('_')[1])
+            qty = int(request.form[key])
+            if qty > 0:
+                items[menu_item_id] = qty
+
+        if not items:
+            flash('Не выбрано ни одно блюдо', 'danger')
+            return redirect(url_for('waiter_dashboard'))
+
+        order = Order(waiter_id=current_user.id, status='waiting',)
+        db.session.add(order)
+        db.session.commit()
+
+        for menu_item_id, quantity in items.items():
+            order_item = OrderItem(order_id=order.id, menu_item_id=menu_item_id, quantity=quantity)
+            db.session.add(order_item)
+        db.session.commit()
+        flash(f'Заказ №{order.id} создан и отправлен повару', 'success')
+        return redirect(url_for('waiter_dashboard'))
+
 @app.route('/')
 def index():
     if current_user.is_authenticated:
