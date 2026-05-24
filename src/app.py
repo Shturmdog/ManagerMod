@@ -131,15 +131,6 @@ def create_user():
         flash(f'Пользователь {username} создан', 'success')
     return redirect(url_for('manager'))
 
-@app.route('/cook/dashboard')
-@login_required
-def cook_dashboard():
-    if current_user.role not in ['cook', 'admin']:
-        flash('Доступ запрещён', 'danger')
-        return redirect(url_for('index'))
-    dishes = MenuItem.query.filter_by(created_by=current_user.id).all()
-    return render_template('cook_dashboard.html', dishes=dishes)
-
 @app.route('/manager/pending_menu')
 @login_required
 def pending_menu():
@@ -174,6 +165,26 @@ def reject_item(item_id):
     db.session.commit()
     flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
     return redirect(url_for('pending_menu'))
+
+#Cook
+@app.route('/cook/dashboard')
+@login_required
+def cook_dashboard():
+    if current_user.role not in ['cook', 'admin']:
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('index'))
+    dishes = MenuItem.query.filter_by(created_by=current_user.id).all()
+
+    waiting_orders = Order.query.filter_by(status='waiting').order_by(Order.created_at.asc()).all()
+    cooking_orders = Order.query.filter_by(status='cooking').order_by(Order.created_at.asc()).all()
+    ready_orders = Order.query.filter_by(status='ready').order_by(Order.updated_at.desc()).all()
+
+    return render_template('cook_dashboard.html',
+                           dishes=dishes,
+                           waiting_orders=waiting_orders,
+                           cooking_orders=cooking_orders,
+                           ready_orders=ready_orders)
+
 
 @app.route('/cook/create_menu', methods=['GET', 'POST'])
 @login_required
