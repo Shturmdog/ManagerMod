@@ -55,6 +55,10 @@ class Order(db.Model):
     order = db.relationship('Order', backref='items')
     menu_item = db.relationship('MenuItem', backref='order_items')
 
+class OrderItem(db.Model):
+    __tablename__ = 'order_items'
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
