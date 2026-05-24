@@ -45,6 +45,9 @@ class MenuItem(db.Model):
     creator = db.relationship('User', foreign_keys=[created_by])
     approver = db.relationship('User', foreign_keys=[approved_by])
 
+class Order(db.Model):
+    __tablename__ = 'orders'
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
