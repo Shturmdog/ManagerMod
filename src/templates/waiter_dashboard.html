@@ -1,0 +1,22 @@
+<!-- templates/waiter_dashboard.html -->
+<h1>Создание заказа</h1>
+<p>Официант: {{ current_user.username }}</p>
+<a href="{{ url_for('waiter_orders') }}">Мои заказы</a> |
+<a href="{{ url_for('logout') }}">Выйти</a>
+<hr>
+<form method="POST" action="{{ url_for('create_order') }}">
+    <label>Номер столика: <input type="number" name="table_number" min="1" required></label><br><br>
+    <table border="1">
+        <thead><tr><th>Блюдо</th><th>Цена</th><th>Количество</th></tr></thead>
+        <tbody>
+        {% for item in menu_items %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.price }} руб.</td>
+            <td><input type="number" name="qty_{{ item.id }}" value="0" min="0" style="width:60px;"></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit">Оформить заказ</button>
+</form>
