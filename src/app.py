@@ -91,7 +91,7 @@ def login():
         if user and user.check_password(password):
             login_user(user)
             if user.role == 'admin':
-                return redirect(url_for('manager'))
+                return redirect(url_for('admin'))
             elif user.role == 'cook':
                 return redirect(url_for('cook_dashboard'))
             elif user.role == 'waiter':
@@ -110,17 +110,17 @@ def logout():
     return redirect(url_for('login'))
 
 #The administrator's page
-@app.route('/manager')
+@app.route('/admin')
 @login_required
-def manager():
+def admin():
     if current_user.role != 'admin':
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
     users = User.query.all()
-    return render_template('manager.html', users=users)
+    return render_template('admin.html', users=users)
 
 #Creating a new user
-@app.route('/manager/create_user', methods=['POST'])
+@app.route('/admin/create_user', methods=['POST'])
 @login_required
 def create_user():
     if current_user.role != 'admin':
@@ -137,15 +137,26 @@ def create_user():
         db.session.add(new_user)
         db.session.commit()
         flash(f'Пользователь {username} создан', 'success')
-    return redirect(url_for('manager'))
+    return redirect(url_for('admin'))
 
-@app.route('/manager/delete_user/<int:user_id>', methods=['POST'])
+@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 @login_required
-def delete_user():
+def delete_user(user_id):
     if current_user.role != 'admin':
         return "Forbidden", 403
 
-@app.route('/manager/pending_menu')
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash("Вы не можете удалять самого себя", 'danger')
+        return redirect(url_for('admin'))
+
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'Пользователь "{username}" удалён', 'success')
+    return redirect(url_for('admin'))
+
+@app.route('/admin/pending_menu')
 @login_required
 def pending_menu():
     if current_user.role != 'admin':
@@ -155,7 +166,7 @@ def pending_menu():
     return render_template('pending_menu.html', items=pending_items)
 
 # Утверждение блюда менеджером
-@app.route('/manager/approve_item/<int:item_id>', methods=['POST'])
+@app.route('/admin/approve_item/<int:item_id>', methods=['POST'])
 @login_required
 def approve_item(item_id):
     if current_user.role != 'admin':
@@ -169,7 +180,7 @@ def approve_item(item_id):
     flash(f'Блюдо "{item.name}" утверждено', 'success')
     return redirect(url_for('pending_menu'))
 
-@app.route('/manager/reject_item/<int:item_id>', methods=['POST'])
+@app.route('/admin/reject_item/<int:item_id>', methods=['POST'])
 @login_required
 def reject_item(item_id):
     if current_user.role != 'admin':
