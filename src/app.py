@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from SimpleDB import SimpleDB
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
@@ -270,6 +269,37 @@ def open_shift():
         flash('Новая смена открыта', 'success')
     return redirect(url_for('manager_dashboard'))
 
+@app.route('/manager/close_shift', methods=['POST'])
+@login_required
+def close_shift():
+    if current_user.role != 'manager':
+        return "Forbidden", 403
+
+    active_shift = Shift.query.filter_by(end_time=None).first()
+    if not active_shift:
+        active_shift = Shift(start_time=datetime.now())
+        db.session.add(active_shift)
+        db.session.commit()
+
+    total_revenue, best_dish, best_waiter = get_shift_statistics()
+
+    active_shift.end_time = datetime.now()
+    active_shift.closed_by = current_user.id
+    active_shift.total_revenue = total_revenue
+    active_shift.best_dish = best_dish
+    active_shift.best_waiter = best_waiter
+    if best_waiter:
+        best_user = User.query.filter_by(username=best_waiter).first()
+        if best_user:
+            active_shift.best_waiter_id = best_user.id
+
+    db.session.commit()
+
+    Order.query.filter_by(status='completed').delete()
+    db.session.commit()
+
+    flash(f'Смена закрыта. Выручка: {total_revenue} руб., лучшее блюдо: {best_dish}, лучший официант: {best_waiter}', 'success')
+    return redirect(url_for('manager_dashboard'))
 
 #Cook
 @app.route('/cook/dashboard')
@@ -386,15 +416,19 @@ def waiter_dashboard():
     if current_user.role != 'waiter':
         flash('Доступ запрещен', 'danger')
         return redirect(url_for('index'))
-
     menu_items = MenuItem.query.filter_by(is_approved=True, is_available=True).all()
-    return render_template('waiter_dashboard.html', menu_items=menu_items)
+    active_shift = Shift.query.filter_by(end_time=None).first()   # <-- добавить
+    return render_template('waiter_dashboard.html', menu_items=menu_items, active_shift=active_shift)
 
 @app.route('/waiter/create_order', methods=['POST'])
 @login_required
 def create_order():
     if current_user.role != 'waiter':
         return 'Forbidden', 403
+    active_shift = Shift.query.filter_by(end_time=None).first()
+    if not active_shift:
+        flash('Смена закрыта. Нельзя создать заказ.', 'danger')
+        return redirect(url_for('waiter_dashboard'))
 
     table_number = request.form.get('table_number')
     if not table_number:
