@@ -271,7 +271,6 @@ def open_shift():
     return redirect(url_for('manager_dashboard'))
 
 
-
 #Cook
 @app.route('/cook/dashboard')
 @login_required
@@ -335,6 +334,10 @@ def create_menu():
 def start_cooking(order_id):
     if current_user.role not in ['cook', 'admin']:
         return "Forbidden", 403
+    active_shift = Shift.query.filter_by(end_time=None).first()
+    if not active_shift:
+        flash('Смена закрыта. Нельзя начать приготовление.', 'danger')
+        return redirect(url_for('cook_dashboard'))
     order = Order.query.get_or_404(order_id)
     if order.status == 'waiting':
         order.status = 'cooking'
@@ -349,6 +352,10 @@ def start_cooking(order_id):
 def mark_ready(order_id):
     if current_user.role not in ['cook', 'admin']:
         return "Forbidden", 403
+    active_shift = Shift.query.filter_by(end_time=None).first()
+    if not active_shift:
+        flash('Смена закрыта. Нельзя отметить готовность.', 'danger')
+        return redirect(url_for('cook_dashboard'))
     order = Order.query.get_or_404(order_id)
     if order.status in ['waiting', 'cooking']:
         order.status = 'ready'
