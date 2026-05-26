@@ -90,8 +90,14 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             login_user(user)
-            flash('Успешный вход!', 'success')
-            return redirect(url_for('manager' if user.role == 'admin' else 'index'))
+            if user.role == 'admin':
+                return redirect(url_for('manager'))
+            elif user.role == 'cook':
+                return redirect(url_for('cook_dashboard'))
+            elif user.role == 'waiter':
+                return redirect(url_for('waiter_dashboard'))
+            else:
+                return redirect(url_for('index'))
         else:
             flash('Неверное имя или пароль', 'danger')
     return render_template('login.html')
@@ -264,8 +270,6 @@ def toggle_availability(item_id):
     item.is_available = not item.is_available
     db.session.commit()
 
-    item.is_available = not item.is_available
-    db.session.commit()
     status = "Доступно" if item.is_available else "Недоступно"
     flash(f'Блюдо "{item.name}" теперь {status}', 'success')
     return redirect(url_for('cook_dashboard'))
@@ -303,6 +307,13 @@ def create_order():
     if not items:
         flash('Не выбрано ни одно блюдо', 'danger')
         return redirect(url_for('waiter_dashboard'))
+
+    for menu_item_id, quantity in items.items():
+        menu_item = MenuItem.query.get(menu_item_id)
+        if not menu_item or not menu_item.is_available or not menu_item.is_approved:
+            flash(f'Блюдо {menu_item.name if menu_item else "?"} больше недоступно', 'danger')
+            db.session.rollback()
+            return redirect(url_for('waiter_dashboard'))
 
     order = Order(waiter_id=current_user.id, table_number=int(table_number), status='waiting')
     db.session.add(order)
