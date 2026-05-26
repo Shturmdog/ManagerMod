@@ -207,6 +207,32 @@ def manager_dashboard():
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
 
+    pending_items = MenuItem.query.filter_by(is_approved=False).all()
+    active_shift = Shift.query.filter_by(end_time=None).first()
+    return render_template('manager_dashboard.html', pending_items=pending_items, active_shift=active_shift)
+
+@app.route('/manager/pending_menu')
+@login_required
+def pending_menu():
+    if current_user.role != 'manager':
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('index'))
+    pending_items = MenuItem.query.filter_by(is_approved=False).all()
+    return render_template('pending_menu.html', items=pending_items)
+
+@app.route('/manager/approve_item/<int:item_id>', methods=['POST'])
+@login_required
+def approve_item(item_id):
+    if current_user.role != 'manager':
+        return "Forbidden", 403
+
+    item = MenuItem.query.get_or_404(item_id)
+    item.is_approved = True
+    item.approved_by = current_user.id
+    item.approved_at = db.func.now()
+    db.session.commit()
+    flash(f'Блюдо "{item.name}" утверждено', 'success')
+    return redirect(url_for('pending_menu'))
 
 #Cook
 @app.route('/cook/dashboard')
