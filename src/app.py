@@ -139,6 +139,12 @@ def create_user():
         flash(f'Пользователь {username} создан', 'success')
     return redirect(url_for('manager'))
 
+@app.route('/manager/delete_user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user():
+    if current_user.role != 'admin':
+        return "Forbidden", 403
+
 @app.route('/manager/pending_menu')
 @login_required
 def pending_menu():
