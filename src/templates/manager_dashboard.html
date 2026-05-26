@@ -1,0 +1,75 @@
+<!-- templates/manager_dashboard.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Панель менеджера</title>
+</head>
+<body>
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h1>Панель менеджера</h1>
+    <p>Здравствуйте, {{ current_user.username }}!</p>
+    <div class="nav-links">
+        <a href="{{ url_for('logout') }}">Выйти</a>
+        <a href="{{ url_for('shift_stats') }}">История смен</a>
+    </div>
+    <hr>
+
+    <h2>Блюда на утверждение</h2>
+    {% if pending_items %}
+        <table class="data-table">
+            <thead>
+                <tr><th>Название</th><th>Цена</th><th>Категория</th><th>Автор</th><th>Действие</th></tr>
+            </thead>
+            <tbody>
+                {% for item in pending_items %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.price }} руб.</td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.creator.username if item.creator else item.created_by }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('approve_item', item_id=item.id) }}" style="display:inline;">
+                            <button type="submit" style="background-color:#2ecc71;">Утвердить</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('reject_item', item_id=item.id) }}" style="display:inline;">
+                            <button type="submit" style="background-color:#e74c3c;">Отклонить</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Нет блюд, ожидающих утверждения.</p>
+    {% endif %}
+
+    <hr>
+    <h2>Управление сменой</h2>
+    {% if active_shift %}
+        <p>Смена <strong>открыта</strong> с {{ active_shift.start_time.strftime('%d.%m.%Y %H:%M') }}</p>
+        <form method="POST" action="{{ url_for('close_shift') }}" onsubmit="return confirm('Закрыть смену? Статистика будет сохранена, а все завершённые заказы будут удалены.');">
+            <button type="submit" style="background-color:#e67e22;">Закрыть смену</button>
+        </form>
+    {% else %}
+        <p>Смена <strong>закрыта</strong> (нет активной смены).</p>
+        <form method="POST" action="{{ url_for('open_shift') }}">
+            <button type="submit" style="background-color:#27ae60;">Открыть новую смену</button>
+        </form>
+        <form method="POST" action="{{ url_for('close_shift') }}" style="margin-top: 10px;">
+            <button type="submit" style="background-color:#e67e22;" onclick="return confirm('В данный момент нет активной смены. Всё равно завершить смену (это просто создаст запись в истории без данных)?');">
+                Закрыть смену (без активной)
+            </button>
+        </form>
+    {% endif %}
+</div>
+</body>
+</html>
