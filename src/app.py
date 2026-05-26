@@ -96,6 +96,8 @@ def login():
                 return redirect(url_for('cook_dashboard'))
             elif user.role == 'waiter':
                 return redirect(url_for('waiter_dashboard'))
+            elif user.role == 'manager':
+                return redirect(url_for('manager_dashboard'))
             else:
                 return redirect(url_for('index'))
         else:
@@ -156,6 +158,13 @@ def delete_user(user_id):
     flash(f'Пользователь "{username}" удалён', 'success')
     return redirect(url_for('admin'))
 
+#Manager
+@app.route('/manager/dashboard')
+@login_required
+def manager_dashboard():
+    if current_user.role != 'manager':
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('index'))
 
 
 #Cook
