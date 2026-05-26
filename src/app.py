@@ -234,6 +234,20 @@ def approve_item(item_id):
     flash(f'Блюдо "{item.name}" утверждено', 'success')
     return redirect(url_for('pending_menu'))
 
+@app.route('/manager/reject_item/<int:item_id>', methods=['POST'])
+@login_required
+def reject_item(item_id):
+    if current_user.role != 'manager':
+        return "Forbidden", 403
+    item = MenuItem.query.get_or_404(item_id)
+    name = item.name
+    db.session.delete(item)
+    db.session.commit()
+    flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
+    return redirect(url_for('pending_menu'))
+
+
+
 #Cook
 @app.route('/cook/dashboard')
 @login_required
