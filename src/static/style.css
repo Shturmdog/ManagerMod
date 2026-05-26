@@ -26,15 +26,12 @@ body {
     margin-right: auto;
 }
 
-
 h1, h2 {
     text-align: center;
 }
 h1 {
     font-size: 1.9rem;
     color: #2c3e50;
-    border-left: none;
-    padding-left: 0;
     margin-bottom: 20px;
 }
 h2 {
@@ -43,7 +40,6 @@ h2 {
     border-bottom: 2px solid #e2e8f0;
     padding-bottom: 8px;
 }
-
 
 .nav-links {
     text-align: center;
@@ -56,6 +52,53 @@ h2 {
     gap: 20px;
 }
 
+/* Стили для ссылок-кнопок внутри nav-links */
+.nav-links a {
+    display: inline-block;
+    background-color: #3498db;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: 0.2s;
+}
+.nav-links a:hover {
+    background-color: #2c81ba;
+    transform: translateY(-1px);
+    text-decoration: none;
+    color: white;
+}
+
+/* Отдельный класс для ссылок-кнопок вне nav-links */
+.link-button {
+    display: inline-block;
+    background-color: #3498db;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: 0.2s;
+}
+.link-button:hover {
+    background-color: #2c81ba;
+    transform: translateY(-1px);
+    text-decoration: none;
+    color: white;
+}
+
+/* Обычные текстовые ссылки (не кнопки) */
+a {
+    color: #3498db;
+    text-decoration: none;
+    transition: 0.2s;
+    font-weight: 500;
+}
+a:hover {
+    color: #1f618d;
+    text-decoration: underline;
+}
 
 form {
     text-align: center;
@@ -79,14 +122,6 @@ button:hover, input[type="submit"]:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
-
-button[style*="red"], input[style*="red"] {
-    background-color: #e74c3c !important;
-}
-button[style*="green"], input[style*="green"] {
-    background-color: #2ecc71 !important;
-}
-
 
 input, select, textarea {
     width: 100%;
@@ -130,20 +165,18 @@ tr:hover {
     background-color: #f8fafc;
 }
 
-.card, div[style*="border"] {
+.card {
     background: #ffffff;
-    border-radius: 20px !important;
-    padding: 18px 20px !important;
-    margin: 20px auto !important;
+    border-radius: 20px;
+    padding: 18px 20px;
+    margin: 20px auto;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     transition: 0.2s;
-    border: none !important;
     max-width: 800px;
 }
-.card:hover, div[style*="border"]:hover {
+.card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-
 
 ul {
     list-style: none;
@@ -162,7 +195,7 @@ li:hover {
     background: #f1f5f9;
 }
 
-.flash-message, p[style*="color: red"] {
+.flash-message {
     background: #fee2e2;
     color: #b91c1c;
     padding: 10px 15px;
@@ -176,6 +209,30 @@ li:hover {
 .status-waiting { color: #f39c12; font-weight: 500; }
 .status-cooking { color: #e67e22; font-weight: 500; }
 .status-ready { color: #27ae60; font-weight: 500; }
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.data-table th,
+.data-table td {
+    text-align: left;
+    padding: 12px 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.data-table th {
+    background-color: #eef2f7;
+    font-weight: 600;
+    color: #2c3e50;
+}
+.data-table tr:hover {
+    background-color: #f8fafc;
+}
 
 @media (max-width: 680px) {
     body {
@@ -209,76 +266,4 @@ li:hover {
     input, select {
         max-width: 100%;
     }
-
-    a {
-    color: #3498db;
-    text-decoration: none;
-    transition: 0.2s;
-    font-weight: 500;
-}
-a:hover {
-    color: #1f618d;
-    text-decoration: underline;
-}
-
-.link-button,
-.nav-links a {
-    display: inline-block;
-    background-color: #3498db;
-    color: white;
-    padding: 6px 16px;
-    border-radius: 30px;
-    text-decoration: none;
-    font-weight: 500;
-    margin: 0 4px;
-    transition: 0.2s;
-}
-.link-button:hover,
-.nav-links a:hover {
-    background-color: #2c81ba;
-    transform: translateY(-1px);
-    text-decoration: none;
-    color: white;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px 0;
-    background: white;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-.data-table th,
-.data-table td {
-    text-align: left;
-    padding: 12px 12px;
-    border-bottom: 1px solid #e2e8f0;
-}
-.data-table th {
-    background-color: #eef2f7;
-    font-weight: 600;
-    color: #2c3e50;
-}
-.data-table tr:hover {
-    background-color: #f8fafc;
-}
-
-.nav-links a {
-    display: inline-block;
-    background-color: #3498db;
-    color: white;
-    padding: 6px 16px;
-    border-radius: 30px;
-}
-
-a {
-    color: #3498db;
-    text-decoration: none;
-    transition: 0.2s;
-    font-weight: 500;
-}
-a:hover {
-    color: #1f618d;
 }
