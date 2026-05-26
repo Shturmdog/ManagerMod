@@ -256,16 +256,17 @@ def cook_dashboard():
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
     dishes = MenuItem.query.filter_by(created_by=current_user.id).all()
-
     waiting_orders = Order.query.filter_by(status='waiting').order_by(Order.created_at.asc()).all()
     cooking_orders = Order.query.filter_by(status='cooking').order_by(Order.created_at.asc()).all()
     ready_orders = Order.query.filter_by(status='ready').order_by(Order.updated_at.desc()).all()
+    active_shift = Shift.query.filter_by(end_time=None).first()
 
     return render_template('cook_dashboard.html',
                            dishes=dishes,
                            waiting_orders=waiting_orders,
                            cooking_orders=cooking_orders,
-                           ready_orders=ready_orders)
+                           ready_orders=ready_orders,
+                           active_shift=active_shift)
 
 
 @app.route('/cook/create_menu', methods=['GET', 'POST'])
