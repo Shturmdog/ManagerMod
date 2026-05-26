@@ -264,6 +264,12 @@ def toggle_availability(item_id):
     item.is_available = not item.is_available
     db.session.commit()
 
+    item.is_available = not item.is_available
+    db.session.commit()
+    status = "Доступно" if item.is_available else "Недоступно"
+    flash(f'Блюдо "{item.name}" теперь {status}', 'success')
+    return redirect(url_for('cook_dashboard'))
+
 
 @app.route('/waiter/dashboard')
 @login_required
