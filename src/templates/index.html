@@ -2,22 +2,39 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Главная страница</title>
 </head>
 <body>
-    <h1>Добро пожаловать в приложение!</h1>
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h1>Добро пожаловать в ManagerMod</h1>
     {% if current_user.is_authenticated %}
         <p>Вы вошли как {{ current_user.username }}</p>
-        <a href="{{ url_for('logout') }}">Выйти</a><br>
-        {% if current_user.role == 'admin' %}
-            <a href="{{ url_for('manager') }}">Панель администратора</a><br>
-        {% elif current_user.role == 'cook' %}
-            <a href="{{ url_for('cook_dashboard') }}">Панель повара</a><br>
-        {% elif current_user.role == 'waiter' %}
-            <a href="{{ url_for('waiter_dashboard') }}">Панель официанта</a><br>
-        {% endif %}
+        <div class="nav-links">
+            <a href="{{ url_for('logout') }}">Выйти</a>
+            {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('admin') }}">Панель администратора</a>
+            {% elif current_user.role == 'manager' %}
+                <a href="{{ url_for('manager_dashboard') }}">Панель менеджера</a>
+            {% elif current_user.role == 'cook' %}
+                <a href="{{ url_for('cook_dashboard') }}">Панель повара</a>
+            {% elif current_user.role == 'waiter' %}
+                <a href="{{ url_for('waiter_dashboard') }}">Панель официанта</a>
+            {% endif %}
+        </div>
     {% else %}
-        <a href="{{ url_for('login') }}">Войти</a>
+        <div class="nav-links">
+            <a href="{{ url_for('login') }}">Войти</a>
+        </div>
     {% endif %}
+</div>
 </body>
 </html>

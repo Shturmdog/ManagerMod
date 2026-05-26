@@ -2,20 +2,37 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Панель повара</title>
 </head>
 <body>
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <h1>Панель повара</h1>
     <p>Здравствуйте, {{ current_user.username }}!</p>
-    <a href="{{ url_for('logout') }}">Выйти</a> |
-    <a href="{{ url_for('create_menu') }}">➕ Создать блюдо</a>
+    <div class="nav-links">
+        <a href="{{ url_for('logout') }}">Выйти</a>
+        <a href="{{ url_for('create_menu') }}">Создать блюдо</a>
+    </div>
     <hr>
 
-    <!-- БЛОК ЗАКАЗОВ -->
-    <h2>⏳ Ожидающие заказы</h2>
+    {% if not active_shift %}
+        <div class="alert alert-warning" style="background-color: #fcf8e3; border-left: 4px solid #8a6d3b; padding: 15px; margin: 15px 0;">
+            Внимание! Смена закрыта. Приготовление и отметка готовности недоступны.
+        </div>
+    {% endif %}
+
+    <h2>Ожидающие заказы</h2>
     {% if waiting_orders %}
         {% for order in waiting_orders %}
-        <div style="border:1px solid #ccc; margin:10px; padding:10px;">
+        <div class="card">
             <b>Заказ №{{ order.id }}</b> от официанта {{ order.waiter.username }} (стол №{{ order.table_number }})<br>
             <b>Состав:</b>
             <ul>
@@ -23,40 +40,48 @@
                 <li>{{ item.menu_item.name }} x {{ item.quantity }}</li>
             {% endfor %}
             </ul>
+            {% if active_shift %}
             <form method="POST" action="{{ url_for('start_cooking', order_id=order.id) }}">
-                <button type="submit">🍳 Начать готовить</button>
+                <button type="submit">Начать готовить</button>
             </form>
+            {% else %}
+            <button disabled style="background-color: gray;">Смена закрыта</button>
+            {% endif %}
         </div>
         {% endfor %}
     {% else %}
         <p>Нет ожидающих заказов.</p>
     {% endif %}
 
-    <h2>🔥 В процессе приготовления</h2>
+    <h2>В процессе приготовления</h2>
     {% if cooking_orders %}
         {% for order in cooking_orders %}
-        <div style="border:1px solid orange; margin:10px; padding:10px;">
-            <b>Заказ №{{ order.id }}</b> от {{ order.waiter.username }}<br>
+        <div class="card">
+            <b>Заказ №{{ order.id }}</b> от {{ order.waiter.username }} (стол №{{ order.table_number }})<br>
             Состав:
             <ul>
             {% for item in order.items %}
                 <li>{{ item.menu_item.name }} x {{ item.quantity }}</li>
             {% endfor %}
             </ul>
+            {% if active_shift %}
             <form method="POST" action="{{ url_for('mark_ready', order_id=order.id) }}">
-                <button type="submit">✅ Готово</button>
+                <button type="submit">Готово</button>
             </form>
+            {% else %}
+            <button disabled style="background-color: gray;">Смена закрыта</button>
+            {% endif %}
         </div>
         {% endfor %}
     {% else %}
         <p>Нет заказов в готовке.</p>
     {% endif %}
 
-    <h2>🍽️ Готовые к выдаче</h2>
+    <h2>Готовые к выдаче</h2>
     {% if ready_orders %}
         {% for order in ready_orders %}
-        <div style="border:1px solid green; margin:10px; padding:10px;">
-            <b>Заказ №{{ order.id }}</b> готов с {{ order.updated_at.strftime('%H:%M') }}
+        <div class="card">
+            <b>Заказ №{{ order.id }}</b> готов с {{ order.updated_at.strftime('%H:%M') }} (стол №{{ order.table_number }})
         </div>
         {% endfor %}
     {% else %}
@@ -64,21 +89,33 @@
     {% endif %}
 
     <hr>
-    <h2>📋 Мои блюда (меню)</h2>
+    <h2>Мои блюда (меню)</h2>
     {% if dishes %}
-        <ul>
+        <ul style="list-style: none; padding: 0;">
         {% for dish in dishes %}
-            <li>{{ dish.name }} — {{ dish.price }} руб. ({{ dish.category }})
+            <li style="margin: 10px 0; padding: 10px; background: #f9f9f9; border-radius: 6px;">
+                <strong>{{ dish.name }}</strong> — {{ dish.price }} руб. ({{ dish.category }})
                 {% if dish.is_approved %}
-                    <span style="color:green;">✓ Утверждено</span>
+                    <span style="color:green;">Утверждено</span>
                 {% else %}
-                    <span style="color:orange;">⏳ Ожидает утверждения</span>
+                    <span style="color:orange;">Ожидает утверждения</span>
                 {% endif %}
+                {% if dish.is_available %}
+                    <span style="color:green;">Доступно</span>
+                {% else %}
+                    <span style="color:red;">Недоступно</span>
+                {% endif %}
+                <form method="POST" action="{{ url_for('toggle_availability', item_id=dish.id) }}" style="display:inline;">
+                    <button type="submit">
+                        {% if dish.is_available %}Сделать недоступным{% else %}Сделать доступным{% endif %}
+                    </button>
+                </form>
             </li>
         {% endfor %}
         </ul>
     {% else %}
         <p>Вы ещё не добавили ни одного блюда.</p>
     {% endif %}
+</div>
 </body>
 </html>

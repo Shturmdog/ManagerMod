@@ -1,23 +1,60 @@
-<!-- templates/waiter_orders.html (фрагмент) -->
-<h2>Активные заказы</h2>
-{% for order in active_orders %}
-<div style="border:1px solid #ccc; margin:10px; padding:10px;">
-    <b>Заказ №{{ order.id }}</b> | Стол №{{ order.table_number }} | Сумма: {{ order.total_price }} руб.
-    <br>Статус:
-    {% if order.status == 'waiting' %}⏳ Ожидает повара
-    {% elif order.status == 'cooking' %}🍳 Готовится
-    {% elif order.status == 'ready' %}✅ Готов к выдаче
-    {% endif %}
-    <br>Состав:
-    <ul>
-    {% for item in order.items %}
-        <li>{{ item.menu_item.name }} x {{ item.quantity }} = {{ item.menu_item.price * item.quantity }} руб.</li>
-    {% endfor %}
-    </ul>
-    {% if order.status == 'ready' %}
-    <form method="POST" action="{{ url_for('complete_order', order_id=order.id) }}" style="display:inline;">
-        <button type="submit">🍽️ Забрал</button>
-    </form>
+<!-- templates/waiter_orders.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Мои заказы | Официант</title>
+</head>
+<body>
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h1>Мои активные заказы</h1>
+    <div class="nav-links">
+        <span>Официант: <strong>{{ current_user.username }}</strong></span>
+        <a href="{{ url_for('waiter_dashboard') }}">Новый заказ</a>
+        <a href="{{ url_for('logout') }}">Выйти</a>
+    </div>
+
+    {% if active_orders %}
+        {% for order in active_orders %}
+            <div class="card">
+                <h3>Заказ №{{ order.id }} | Стол №{{ order.table_number }}</h3>
+                <p><strong>Сумма:</strong> {{ order.total_price }} руб.</p>
+                <p><strong>Статус:</strong>
+                    {% if order.status == 'waiting' %}
+                        <span class="status-waiting">Ожидает повара</span>
+                    {% elif order.status == 'cooking' %}
+                        <span class="status-cooking">Готовится</span>
+                    {% elif order.status == 'ready' %}
+                        <span class="status-ready">Готов к выдаче</span>
+                    {% endif %}
+                </p>
+                <strong>Состав заказа:</strong>
+                <ul>
+                    {% for item in order.items %}
+                        <li>{{ item.menu_item.name }} x {{ item.quantity }} = {{ item.menu_item.price * item.quantity }} руб.</li>
+                    {% endfor %}
+                </ul>
+                {% if order.status == 'ready' %}
+                    <form method="POST" action="{{ url_for('complete_order', order_id=order.id) }}">
+                        <button type="submit" style="background-color: #27ae60;">Забрал (заказ завершён)</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="card" style="text-align: center;">
+            <p>У вас пока нет активных заказов.</p>
+            <p><a href="{{ url_for('waiter_dashboard') }}" class="link-button">Создать новый заказ</a></p>
+        </div>
     {% endif %}
 </div>
-{% endfor %}
+</body>
+</html>
