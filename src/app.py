@@ -7,8 +7,9 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///DataBase.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ECHO'] = True
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -29,6 +30,19 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+class Category(db.Model):
+    __tablename__ = 'categories'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+class Table(db.Model):
+    __tablename__ = 'tables'
+    id = db.Column(db.Integer, primary_key=True)
+    number = db.Column(db.Integer, unique=True, nullable=False)
+    capacity = db.Column(db.Integer, default=2)
+    status = db.Column(db.String(20), default='free')
+
+
 
 class MenuItem(db.Model):
     __tablename__ = 'menu_items'
@@ -42,6 +56,8 @@ class MenuItem(db.Model):
     approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.now())
     approved_at = db.Column(db.DateTime, nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
+    category_rel = db.relationship('Category')
 
     # связи
     creator = db.relationship('User', foreign_keys=[created_by])
@@ -55,6 +71,8 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     table_number = db.Column(db.Integer, nullable=False)
+    table_id = db.Column(db.Integer, db.ForeignKey('tables.id'))
+    table_rel = db.relationship('Table')
 
     waiter = db.relationship('User', foreign_keys=[waiter_id], backref='orders')
 
@@ -85,6 +103,7 @@ class Shift(db.Model):
 
     closer = db.relationship('User', foreign_keys=[closed_by])
     best_waiter_rel = db.relationship('User', foreign_keys=[best_waiter_id])
+
 
 def get_shift_statistics():
     completed_orders = Order.query.filter_by(status='completed').all()
@@ -211,16 +230,8 @@ def manager_dashboard():
     active_shift = Shift.query.filter_by(end_time=None).first()
     return render_template('manager_dashboard.html', pending_items=pending_items, active_shift=active_shift)
 
-@app.route('/manager/pending_menu')
-@login_required
-def pending_menu():
-    if current_user.role != 'manager':
-        flash('Доступ запрещён', 'danger')
-        return redirect(url_for('index'))
-    pending_items = MenuItem.query.filter_by(is_approved=False).all()
-    return render_template('pending_menu.html', items=pending_items)
 
-@app.route('/manager/approve_item/<int:item_id>', methods=['POST'])
+@app.route('/manager_dashboard/approve_item/<int:item_id>', methods=['POST'])
 @login_required
 def approve_item(item_id):
     if current_user.role != 'manager':
@@ -234,7 +245,7 @@ def approve_item(item_id):
     flash(f'Блюдо "{item.name}" утверждено', 'success')
     return redirect(url_for('pending_menu'))
 
-@app.route('/manager/reject_item/<int:item_id>', methods=['POST'])
+@app.route('/manager_dashboard/reject_item/<int:item_id>', methods=['POST'])
 @login_required
 def reject_item(item_id):
     if current_user.role != 'manager':
@@ -246,7 +257,7 @@ def reject_item(item_id):
     flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
     return redirect(url_for('pending_menu'))
 
-@app.route('/manager/shift_stats')
+@app.route('/manager_dashboard/shift_stats')
 @login_required
 def shift_stats():
     if current_user.role != 'manager':
@@ -255,7 +266,7 @@ def shift_stats():
     shifts = Shift.query.filter(Shift.end_time.isnot(None)).order_by(Shift.end_time.desc()).all()
     return render_template('shift_stats.html', shifts=shifts)
 
-@app.route('/manager/open_shift', methods=['POST'])
+@app.route('/manager_dashboard/open_shift', methods=['POST'])
 @login_required
 def open_shift():
     if current_user.role != 'manager':
@@ -270,7 +281,7 @@ def open_shift():
         flash('Новая смена открыта', 'success')
     return redirect(url_for('manager_dashboard'))
 
-@app.route('/manager/close_shift', methods=['POST'])
+@app.route('/manager_dashboard/close_shift', methods=['POST'])
 @login_required
 def close_shift():
     if current_user.role != 'manager':
@@ -508,7 +519,7 @@ def home():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)
 
 
 
