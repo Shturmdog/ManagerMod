@@ -254,6 +254,17 @@ def mark_ready(order_id):
         flash('Некорректный статус', 'warning')
     return redirect(url_for('cook_dashboard'))
 
+@app.route('/cook/toggle_availability/<int:item_id>', methods=['POST'])
+@login_required
+def toggle_availability(item_id):
+    if current_user.role not in 'cook':
+        return "Forbidden", 403
+    item = MenuItem.query.get_or_404(item_id)
+
+    item.is_available = not item.is_available
+    db.session.commit()
+
+
 @app.route('/waiter/dashboard')
 @login_required
 def waiter_dashboard():
