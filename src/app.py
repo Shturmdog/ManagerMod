@@ -36,6 +36,7 @@ class MenuItem(db.Model):
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Float, nullable=False)
     category = db.Column(db.String(50), default='main')  # soup, salad, main, dessert
+    is_available = db.Column(db.Boolean, default=True)
     is_approved = db.Column(db.Boolean, default=False)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
