@@ -1,0 +1,46 @@
+<!-- templates/shift_stats.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>История смен</title>
+</head>
+<body>
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h1>История закрытых смен</h1>
+    <div class="nav-links">
+        <a href="{{ url_for('manager_dashboard') }}">Назад</a>
+        <a href="{{ url_for('logout') }}">Выйти</a>
+    </div>
+    {% if shifts %}
+        <table class="data-table">
+            <thead>
+                <tr><th>Дата открытия</th><th>Дата закрытия</th><th>Выручка</th><th>Лучшее блюдо</th><th>Лучший официант</th><th>Закрыл</th></tr>
+            </thead>
+            <tbody>
+            {% for shift in shifts %}
+                <tr>
+                    <td>{{ shift.start_time.strftime('%d.%m.%Y %H:%M') }}</td>
+                    <td>{{ shift.end_time.strftime('%d.%m.%Y %H:%M') }}</td>
+                    <td>{{ shift.total_revenue }} руб.</td>
+                    <td>{{ shift.best_dish or '—' }}</td>
+                    <td>{{ shift.best_waiter or '—' }}</td>
+                    <td>{{ shift.closer.username if shift.closer else '—' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Пока нет закрытых смен.</p>
+    {% endif %}
+</div>
+</body>
+</html>
