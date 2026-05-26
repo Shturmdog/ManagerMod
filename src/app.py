@@ -278,7 +278,7 @@ def waiter_dashboard():
         flash('Доступ запрещен', 'danger')
         return redirect(url_for('index'))
 
-    menu_items = MenuItem.query.filter_by(is_approved=True).all()
+    menu_items = MenuItem.query.filter_by(is_approved=True, is_available=True).all()
     return render_template('waiter_dashboard.html', menu_items=menu_items)
 
 @app.route('/waiter/create_order', methods=['POST'])
