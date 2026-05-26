@@ -68,6 +68,19 @@ class OrderItem(db.Model):
     order = db.relationship('Order', backref='items')
     menu_item = db.relationship('MenuItem', backref='order_items')
 
+class Shift(db.Model):
+    __tablename__ = 'shifts'
+    id = db.Column(db.Integer, primary_key=True)
+    start_time = db.Column(db.DateTime, default=datetime.now)
+    end_time = db.Column(db.DateTime, nullable=True)
+    closed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    total_revenue = db.Column(db.Float, default=0.0)
+    best_dish = db.Column(db.String(100), nullable=True)
+    best_waiter = db.Column(db.String(80), nullable=True)
+    best_waiter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    closer = db.relationship('User', foreign_keys=[closed_by])
+    best_waiter_rel = db.relationship('User', foreign_keys=[best_waiter_id])
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
