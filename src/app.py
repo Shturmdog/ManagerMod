@@ -246,6 +246,30 @@ def reject_item(item_id):
     flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
     return redirect(url_for('pending_menu'))
 
+@app.route('/manager/shift_stats')
+@login_required
+def shift_stats():
+    if current_user.role != 'manager':
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('index'))
+    shifts = Shift.query.filter(Shift.end_time.isnot(None)).order_by(Shift.end_time.desc()).all()
+    return render_template('shift_stats.html', shifts=shifts)
+
+@app.route('/manager/open_shift', methods=['POST'])
+@login_required
+def open_shift():
+    if current_user.role != 'manager':
+        return "Forbidden", 403
+    active_shift = Shift.query.filter_by(end_time=None).first()
+    if active_shift:
+        flash('Смена уже открыта', 'warning')
+    else:
+        new_shift = Shift(start_time=datetime.now())
+        db.session.add(new_shift)
+        db.session.commit()
+        flash('Новая смена открыта', 'success')
+    return redirect(url_for('manager_dashboard'))
+
 
 
 #Cook
