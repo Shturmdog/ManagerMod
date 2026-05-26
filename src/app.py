@@ -1,155 +1,253 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, redirect, url_for, flash, g
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
 import os
 from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///DataBase.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ECHO'] = True
 
-db = SQLAlchemy(app)
+DATABASE = 'DataBase.db'
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-#The structure of the user table in the database
-class User(UserMixin, db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), default='user')
 
-    #Methods for working with passwords
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+# ============ DATABASE HELPERS ============
+
+def get_db():
+    """Получение соединения с БД"""
+    if 'db' not in g:
+        g.db = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(exception):
+    """Закрытие соединения после запроса"""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+
+def query_db(query, args=(), one=False, commit=False):
+    """Универсальная функция для выполнения SQL-запросов"""
+    db = get_db()
+    cur = db.execute(query, args)
+
+    if commit:
+        db.commit()
+        lastrowid = cur.lastrowid
+        cur.close()
+        return lastrowid
+
+    rv = cur.fetchall()
+    cur.close()
+    return (rv[0] if rv else None) if one else rv
+
+
+def dict_from_row(row):
+    """Конвертирует sqlite3.Row в обычный dict с конвертацией дат"""
+    if row is None:
+        return None
+    d = {}
+    for key in row.keys():
+        val = row[key]
+        # Конвертируем строки дат в datetime
+        if isinstance(val, str) and key in ('created_at', 'updated_at', 'start_time', 'end_time', 'approved_at'):
+            for fmt in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                try:
+                    val = datetime.strptime(val, fmt)
+                    break
+                except ValueError:
+                    continue
+        d[key] = val
+    return d
+
+
+def query_db_dict(query, args=(), one=False, commit=False):
+    """Версия query_db, возвращающая dict'ы с конвертированными датами"""
+    result = query_db(query, args, one, commit)
+    if commit:
+        return result
+    if one:
+        return dict_from_row(result)
+    return [dict_from_row(row) for row in result]
+
+
+def init_db():
+    """Инициализация базы данных — создание таблиц"""
+    db = sqlite3.connect(DATABASE)
+
+    db.executescript("""
+        DROP TABLE IF EXISTS order_items;
+        DROP TABLE IF EXISTS orders;
+        DROP TABLE IF EXISTS menu_items;
+        DROP TABLE IF EXISTS shifts;
+        DROP TABLE IF EXISTS tables;
+        DROP TABLE IF EXISTS categories;
+        DROP TABLE IF EXISTS users;
+
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username VARCHAR(80) UNIQUE NOT NULL,
+            password_hash VARCHAR(200) NOT NULL,
+            role VARCHAR(20) DEFAULT 'user'
+        );
+
+        CREATE TABLE categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR(50) UNIQUE NOT NULL
+        );
+
+        CREATE TABLE tables (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            number INTEGER UNIQUE NOT NULL,
+            capacity INTEGER DEFAULT 2,
+            status VARCHAR(20) DEFAULT 'free'
+        );
+
+        CREATE TABLE menu_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR(100) NOT NULL,
+            price REAL NOT NULL,
+            category VARCHAR(50) DEFAULT 'main',
+            is_available BOOLEAN DEFAULT 1,
+            is_approved BOOLEAN DEFAULT 0,
+            created_by INTEGER NOT NULL,
+            approved_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            approved_at DATETIME,
+            category_id INTEGER,
+            FOREIGN KEY (created_by) REFERENCES users(id),
+            FOREIGN KEY (approved_by) REFERENCES users(id),
+            FOREIGN KEY (category_id) REFERENCES categories(id)
+        );
+
+        CREATE TABLE orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            waiter_id INTEGER NOT NULL,
+            status VARCHAR(20) DEFAULT 'waiting',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            table_number INTEGER NOT NULL,
+            table_id INTEGER,
+            FOREIGN KEY (waiter_id) REFERENCES users(id),
+            FOREIGN KEY (table_id) REFERENCES tables(id)
+        );
+
+        CREATE TRIGGER update_orders_timestamp 
+        AFTER UPDATE ON orders
+        FOR EACH ROW
+        BEGIN
+            UPDATE orders SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+
+        CREATE TABLE order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            menu_item_id INTEGER NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+            FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
+        );
+
+        CREATE TABLE shifts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            end_time DATETIME,
+            closed_by INTEGER,
+            total_revenue REAL DEFAULT 0.0,
+            best_dish VARCHAR(100),
+            best_waiter VARCHAR(80),
+            best_waiter_id INTEGER,
+            FOREIGN KEY (closed_by) REFERENCES users(id),
+            FOREIGN KEY (best_waiter_id) REFERENCES users(id)
+        );
+
+        CREATE INDEX idx_orders_waiter ON orders(waiter_id);
+        CREATE INDEX idx_orders_status ON orders(status);
+        CREATE INDEX idx_orders_table ON orders(table_number);
+        CREATE INDEX idx_menu_items_category ON menu_items(category_id);
+        CREATE INDEX idx_menu_items_created_by ON menu_items(created_by);
+        CREATE INDEX idx_order_items_order ON order_items(order_id);
+        CREATE INDEX idx_shifts_end_time ON shifts(end_time);
+    """)
+    db.commit()
+    db.close()
+
+
+# ============ USER CLASS FOR FLASK-LOGIN ============
+
+class User(UserMixin):
+    def __init__(self, id, username, password_hash, role):
+        self.id = id
+        self.username = username
+        self.password_hash = password_hash
+        self.role = role
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-class Category(db.Model):
-    __tablename__ = 'categories'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-
-class Table(db.Model):
-    __tablename__ = 'tables'
-    id = db.Column(db.Integer, primary_key=True)
-    number = db.Column(db.Integer, unique=True, nullable=False)
-    capacity = db.Column(db.Integer, default=2)
-    status = db.Column(db.String(20), default='free')
-
-
-
-class MenuItem(db.Model):
-    __tablename__ = 'menu_items'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    category = db.Column(db.String(50), default='main')  # soup, salad, main, dessert
-    is_available = db.Column(db.Boolean, default=True)
-    is_approved = db.Column(db.Boolean, default=False)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=db.func.now())
-    approved_at = db.Column(db.DateTime, nullable=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
-    category_rel = db.relationship('Category')
-
-    # связи
-    creator = db.relationship('User', foreign_keys=[created_by])
-    approver = db.relationship('User', foreign_keys=[approved_by])
-
-class Order(db.Model):
-    __tablename__ = 'orders'
-    id = db.Column(db.Integer, primary_key=True)
-    waiter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String(20), default='waiting')
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    table_number = db.Column(db.Integer, nullable=False)
-    table_id = db.Column(db.Integer, db.ForeignKey('tables.id'))
-    table_rel = db.relationship('Table')
-
-    waiter = db.relationship('User', foreign_keys=[waiter_id], backref='orders')
-
-    @property
-    def total_price(self):
-        return sum(item.menu_item.price * item.quantity for item in self.items)
-
-class OrderItem(db.Model):
-    __tablename__ = 'order_items'
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
-    menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_items.id'), nullable=False)
-    quantity = db.Column(db.Integer, default=1)
-
-    order = db.relationship('Order', backref='items')
-    menu_item = db.relationship('MenuItem', backref='order_items')
-
-class Shift(db.Model):
-    __tablename__ = 'shifts'
-    id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.DateTime, default=datetime.now)
-    end_time = db.Column(db.DateTime, nullable=True)
-    closed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    total_revenue = db.Column(db.Float, default=0.0)
-    best_dish = db.Column(db.String(100), nullable=True)
-    best_waiter = db.Column(db.String(80), nullable=True)
-    best_waiter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-
-    closer = db.relationship('User', foreign_keys=[closed_by])
-    best_waiter_rel = db.relationship('User', foreign_keys=[best_waiter_id])
-
-
-def get_shift_statistics():
-    completed_orders = Order.query.filter_by(status='completed').all()
-    if not completed_orders:
-        return 0.0, None, None
-
-    total_revenue = sum(order.total_price for order in completed_orders)
-
-    dish_count = {}
-    for order in completed_orders:
-        for item in order.items:
-            dish_name = item.menu_item.name
-            dish_count[dish_name] = dish_count.get(dish_name, 0) + item.quantity
-    best_dish = max(dish_count, key=dish_count.get) if dish_count else None
-
-    waiter_revenue = {}
-    for order in completed_orders:
-        waiter_name = order.waiter.username
-        waiter_revenue[waiter_name] = waiter_revenue.get(waiter_name, 0) + order.total_price
-    best_waiter = max(waiter_revenue, key=waiter_revenue.get) if waiter_revenue else None
-
-    return total_revenue, best_dish, best_waiter
-
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    row = query_db("SELECT * FROM users WHERE id = ?", [user_id], one=True)
+    if row:
+        return User(row['id'], row['username'], row['password_hash'], row['role'])
+    return None
 
-#Create tables and add a test admin
-with app.app_context():
-    db.create_all()
-    if not User.query.filter_by(username='admin').first():
-        admin = User(username='admin', role='admin')
-        admin.set_password('admin123')
-        db.session.add(admin)
-        db.session.commit()
 
-#login page
+# ============ INIT DATABASE ============
+
+if not os.path.exists(DATABASE):
+    init_db()
+
+    db = sqlite3.connect(DATABASE)
+    db.execute(
+        "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+        ('admin', generate_password_hash('admin123'), 'admin')
+    )
+    db.commit()
+    db.close()
+
+
+# ============ JINJA FILTERS ============
+
+@app.template_filter('datetime')
+def format_datetime(value, fmt='%d.%m.%Y %H:%M'):
+    """Фильтр для форматирования дат в шаблонах"""
+    if value is None:
+        return ''
+    if isinstance(value, str):
+        for f in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+            try:
+                value = datetime.strptime(value, f)
+                break
+            except ValueError:
+                continue
+        else:
+            return value
+    if isinstance(value, datetime):
+        return value.strftime(fmt)
+    return str(value)
+
+
+# ============ AUTH ROUTES ============
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
+        row = query_db("SELECT * FROM users WHERE username = ?", [username], one=True)
+
+        if row and check_password_hash(row['password_hash'], password):
+            user = User(row['id'], row['username'], row['password_hash'], row['role'])
             login_user(user)
+
             if user.role == 'admin':
                 return redirect(url_for('admin'))
             elif user.role == 'cook':
@@ -164,42 +262,48 @@ def login():
             flash('Неверное имя или пароль', 'danger')
     return render_template('login.html')
 
-#Logout of the system
+
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('login'))
 
-#The administrator's page
+
+# ============ ADMIN ROUTES ============
+
 @app.route('/admin')
 @login_required
 def admin():
     if current_user.role != 'admin':
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
-    users = User.query.all()
+    users = query_db_dict("SELECT * FROM users")
     return render_template('admin.html', users=users)
 
-#Creating a new user
+
 @app.route('/admin/create_user', methods=['POST'])
 @login_required
 def create_user():
     if current_user.role != 'admin':
         return "Forbidden", 403
+
     username = request.form['username']
     password = request.form['password']
     role = request.form.get('role', 'user')
 
-    if User.query.filter_by(username=username).first():
+    existing = query_db("SELECT id FROM users WHERE username = ?", [username], one=True)
+    if existing:
         flash('Пользователь с таким именем уже существует', 'danger')
     else:
-        new_user = User(username=username, role=role)
-        new_user.set_password(password)
-        db.session.add(new_user)
-        db.session.commit()
+        query_db(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            [username, generate_password_hash(password), role],
+            commit=True
+        )
         flash(f'Пользователь {username} создан', 'success')
     return redirect(url_for('admin'))
+
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 @login_required
@@ -207,18 +311,19 @@ def delete_user(user_id):
     if current_user.role != 'admin':
         return "Forbidden", 403
 
-    user = User.query.get_or_404(user_id)
-    if user.id == current_user.id:
+    if user_id == current_user.id:
         flash("Вы не можете удалять самого себя", 'danger')
         return redirect(url_for('admin'))
 
-    username = user.username
-    db.session.delete(user)
-    db.session.commit()
-    flash(f'Пользователь "{username}" удалён', 'success')
+    user = query_db("SELECT username FROM users WHERE id = ?", [user_id], one=True)
+    if user:
+        query_db("DELETE FROM users WHERE id = ?", [user_id], commit=True)
+        flash(f'Пользователь "{user["username"]}" удалён', 'success')
     return redirect(url_for('admin'))
 
-#Manager
+
+# ============ MANAGER ROUTES ============
+
 @app.route('/manager/dashboard')
 @login_required
 def manager_dashboard():
@@ -226,8 +331,13 @@ def manager_dashboard():
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
 
-    pending_items = MenuItem.query.filter_by(is_approved=False).all()
-    active_shift = Shift.query.filter_by(end_time=None).first()
+    pending_items = query_db_dict("""
+        SELECT mi.*, u.username as creator_name 
+        FROM menu_items mi 
+        JOIN users u ON mi.created_by = u.id 
+        WHERE mi.is_approved = 0
+    """)
+    active_shift = query_db_dict("SELECT * FROM shifts WHERE end_time IS NULL", one=True)
     return render_template('manager_dashboard.html', pending_items=pending_items, active_shift=active_shift)
 
 
@@ -237,25 +347,29 @@ def approve_item(item_id):
     if current_user.role != 'manager':
         return "Forbidden", 403
 
-    item = MenuItem.query.get_or_404(item_id)
-    item.is_approved = True
-    item.approved_by = current_user.id
-    item.approved_at = db.func.now()
-    db.session.commit()
-    flash(f'Блюдо "{item.name}" утверждено', 'success')
-    return redirect(url_for('pending_menu'))
+    query_db("""
+        UPDATE menu_items 
+        SET is_approved = 1, approved_by = ?, approved_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+    """, [current_user.id, item_id], commit=True)
+
+    item = query_db("SELECT name FROM menu_items WHERE id = ?", [item_id], one=True)
+    flash(f'Блюдо "{item["name"]}" утверждено', 'success')
+    return redirect(url_for('manager_dashboard'))
+
 
 @app.route('/manager_dashboard/reject_item/<int:item_id>', methods=['POST'])
 @login_required
 def reject_item(item_id):
     if current_user.role != 'manager':
         return "Forbidden", 403
-    item = MenuItem.query.get_or_404(item_id)
-    name = item.name
-    db.session.delete(item)
-    db.session.commit()
-    flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
-    return redirect(url_for('pending_menu'))
+
+    item = query_db("SELECT name FROM menu_items WHERE id = ?", [item_id], one=True)
+    if item:
+        query_db("DELETE FROM menu_items WHERE id = ?", [item_id], commit=True)
+        flash(f'Блюдо "{item["name"]}" отклонено и удалено', 'warning')
+    return redirect(url_for('manager_dashboard'))
+
 
 @app.route('/manager_dashboard/shift_stats')
 @login_required
@@ -263,23 +377,72 @@ def shift_stats():
     if current_user.role != 'manager':
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
-    shifts = Shift.query.filter(Shift.end_time.isnot(None)).order_by(Shift.end_time.desc()).all()
+
+    shifts = query_db_dict("""
+        SELECT s.*, u.username as closer_name, bw.username as best_waiter_name
+        FROM shifts s
+        LEFT JOIN users u ON s.closed_by = u.id
+        LEFT JOIN users bw ON s.best_waiter_id = bw.id
+        WHERE s.end_time IS NOT NULL
+        ORDER BY s.end_time DESC
+    """)
     return render_template('shift_stats.html', shifts=shifts)
+
 
 @app.route('/manager_dashboard/open_shift', methods=['POST'])
 @login_required
 def open_shift():
     if current_user.role != 'manager':
         return "Forbidden", 403
-    active_shift = Shift.query.filter_by(end_time=None).first()
-    if active_shift:
+
+    active = query_db("SELECT id FROM shifts WHERE end_time IS NULL", one=True)
+    if active:
         flash('Смена уже открыта', 'warning')
     else:
-        new_shift = Shift(start_time=datetime.now())
-        db.session.add(new_shift)
-        db.session.commit()
+        query_db("INSERT INTO shifts (start_time) VALUES (CURRENT_TIMESTAMP)", commit=True)
         flash('Новая смена открыта', 'success')
     return redirect(url_for('manager_dashboard'))
+
+
+def get_shift_statistics():
+    """Получение статистики смены через SQL"""
+    total = query_db("""
+        SELECT COALESCE(SUM(mi.price * oi.quantity), 0) as revenue
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN menu_items mi ON oi.menu_item_id = mi.id
+        WHERE o.status = 'completed'
+    """, one=True)
+
+    best_dish = query_db("""
+        SELECT mi.name, SUM(oi.quantity) as qty
+        FROM order_items oi
+        JOIN menu_items mi ON oi.menu_item_id = mi.id
+        JOIN orders o ON oi.order_id = o.id
+        WHERE o.status = 'completed'
+        GROUP BY mi.name
+        ORDER BY qty DESC
+        LIMIT 1
+    """, one=True)
+
+    best_waiter = query_db("""
+        SELECT u.username, SUM(mi.price * oi.quantity) as revenue
+        FROM orders o
+        JOIN users u ON o.waiter_id = u.id
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN menu_items mi ON oi.menu_item_id = mi.id
+        WHERE o.status = 'completed'
+        GROUP BY u.username
+        ORDER BY revenue DESC
+        LIMIT 1
+    """, one=True)
+
+    return (
+        total['revenue'] if total else 0.0,
+        best_dish['name'] if best_dish else None,
+        best_waiter['username'] if best_waiter else None
+    )
+
 
 @app.route('/manager_dashboard/close_shift', methods=['POST'])
 @login_required
@@ -287,44 +450,74 @@ def close_shift():
     if current_user.role != 'manager':
         return "Forbidden", 403
 
-    active_shift = Shift.query.filter_by(end_time=None).first()
+    active_shift = query_db("SELECT * FROM shifts WHERE end_time IS NULL", one=True)
+
     if not active_shift:
-        active_shift = Shift(start_time=datetime.now())
-        db.session.add(active_shift)
-        db.session.commit()
+        query_db("INSERT INTO shifts (start_time) VALUES (CURRENT_TIMESTAMP)", commit=True)
+        active_shift = query_db("SELECT * FROM shifts WHERE end_time IS NULL", one=True)
 
     total_revenue, best_dish, best_waiter = get_shift_statistics()
 
-    active_shift.end_time = datetime.now()
-    active_shift.closed_by = current_user.id
-    active_shift.total_revenue = total_revenue
-    active_shift.best_dish = best_dish
-    active_shift.best_waiter = best_waiter
+    best_waiter_id = None
     if best_waiter:
-        best_user = User.query.filter_by(username=best_waiter).first()
-        if best_user:
-            active_shift.best_waiter_id = best_user.id
+        bw = query_db("SELECT id FROM users WHERE username = ?", [best_waiter], one=True)
+        if bw:
+            best_waiter_id = bw['id']
 
-    db.session.commit()
+    query_db("""
+        UPDATE shifts 
+        SET end_time = CURRENT_TIMESTAMP,
+            closed_by = ?,
+            total_revenue = ?,
+            best_dish = ?,
+            best_waiter = ?,
+            best_waiter_id = ?
+        WHERE id = ?
+    """, [current_user.id, total_revenue, best_dish, best_waiter, best_waiter_id, active_shift['id']], commit=True)
 
-    Order.query.filter_by(status='completed').delete()
-    db.session.commit()
+    query_db("DELETE FROM orders WHERE status = 'completed'", commit=True)
 
-    flash(f'Смена закрыта. Выручка: {total_revenue} руб., лучшее блюдо: {best_dish}, лучший официант: {best_waiter}', 'success')
+    flash(f'Смена закрыта. Выручка: {total_revenue} руб., лучшее блюдо: {best_dish}, лучший официант: {best_waiter}',
+          'success')
     return redirect(url_for('manager_dashboard'))
 
-#Cook
+
+# ============ COOK ROUTES ============
+
 @app.route('/cook/dashboard')
 @login_required
 def cook_dashboard():
     if current_user.role not in ['cook', 'admin']:
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
-    dishes = MenuItem.query.filter_by(created_by=current_user.id).all()
-    waiting_orders = Order.query.filter_by(status='waiting').order_by(Order.created_at.asc()).all()
-    cooking_orders = Order.query.filter_by(status='cooking').order_by(Order.created_at.asc()).all()
-    ready_orders = Order.query.filter_by(status='ready').order_by(Order.updated_at.desc()).all()
-    active_shift = Shift.query.filter_by(end_time=None).first()
+
+    dishes = query_db_dict("SELECT * FROM menu_items WHERE created_by = ?", [current_user.id])
+
+    waiting_orders = query_db_dict("""
+        SELECT o.*, u.username as waiter_name
+        FROM orders o
+        JOIN users u ON o.waiter_id = u.id
+        WHERE o.status = 'waiting'
+        ORDER BY o.created_at ASC
+    """)
+
+    cooking_orders = query_db_dict("""
+        SELECT o.*, u.username as waiter_name
+        FROM orders o
+        JOIN users u ON o.waiter_id = u.id
+        WHERE o.status = 'cooking'
+        ORDER BY o.created_at ASC
+    """)
+
+    ready_orders = query_db_dict("""
+        SELECT o.*, u.username as waiter_name
+        FROM orders o
+        JOIN users u ON o.waiter_id = u.id
+        WHERE o.status = 'ready'
+        ORDER BY o.updated_at DESC
+    """)
+
+    active_shift = query_db_dict("SELECT * FROM shifts WHERE end_time IS NULL", one=True)
 
     return render_template('cook_dashboard.html',
                            dishes=dishes,
@@ -356,71 +549,73 @@ def create_menu():
             flash('Цена должна быть числом', 'danger')
             return redirect(url_for('create_menu'))
 
-        # Используем SQLAlchemy для сохранения блюда
-        new_item = MenuItem(
-            name=name,
-            price=price,
-            category=category,
-            created_by=current_user.id,
-            is_approved=False
-        )
-        db.session.add(new_item)
-        db.session.commit()
+        query_db("""
+            INSERT INTO menu_items (name, price, category, created_by, is_approved)
+            VALUES (?, ?, ?, ?, 0)
+        """, [name, price, category, current_user.id], commit=True)
+
         flash(f'Блюдо "{name}" добавлено на утверждение', 'success')
         return redirect(url_for('cook_dashboard'))
 
     return render_template('create_menu.html')
+
 
 @app.route('/cook/start_cooking/<int:order_id>', methods=['POST'])
 @login_required
 def start_cooking(order_id):
     if current_user.role not in ['cook', 'admin']:
         return "Forbidden", 403
-    active_shift = Shift.query.filter_by(end_time=None).first()
+
+    active_shift = query_db("SELECT id FROM shifts WHERE end_time IS NULL", one=True)
     if not active_shift:
         flash('Смена закрыта. Нельзя начать приготовление.', 'danger')
         return redirect(url_for('cook_dashboard'))
-    order = Order.query.get_or_404(order_id)
-    if order.status == 'waiting':
-        order.status = 'cooking'
-        db.session.commit()
-        flash(f'Заказ №{order.id} начат приготовление', 'info')
+
+    order = query_db("SELECT status FROM orders WHERE id = ?", [order_id], one=True)
+    if order and order['status'] == 'waiting':
+        query_db("UPDATE orders SET status = 'cooking' WHERE id = ?", [order_id], commit=True)
+        flash(f'Заказ №{order_id} начат приготовление', 'info')
     else:
         flash('Невозможно начать готовку', 'warning')
     return redirect(url_for('cook_dashboard'))
+
 
 @app.route('/cook/mark_ready/<int:order_id>', methods=['POST'])
 @login_required
 def mark_ready(order_id):
     if current_user.role not in ['cook', 'admin']:
         return "Forbidden", 403
-    active_shift = Shift.query.filter_by(end_time=None).first()
+
+    active_shift = query_db("SELECT id FROM shifts WHERE end_time IS NULL", one=True)
     if not active_shift:
         flash('Смена закрыта. Нельзя отметить готовность.', 'danger')
         return redirect(url_for('cook_dashboard'))
-    order = Order.query.get_or_404(order_id)
-    if order.status in ['waiting', 'cooking']:
-        order.status = 'ready'
-        db.session.commit()
-        flash(f'Заказ №{order.id} готов к выдаче', 'success')
+
+    order = query_db("SELECT status FROM orders WHERE id = ?", [order_id], one=True)
+    if order and order['status'] in ['waiting', 'cooking']:
+        query_db("UPDATE orders SET status = 'ready' WHERE id = ?", [order_id], commit=True)
+        flash(f'Заказ №{order_id} готов к выдаче', 'success')
     else:
         flash('Некорректный статус', 'warning')
     return redirect(url_for('cook_dashboard'))
 
+
 @app.route('/cook/toggle_availability/<int:item_id>', methods=['POST'])
 @login_required
 def toggle_availability(item_id):
-    if current_user.role not in 'cook':
+    if current_user.role != 'cook':
         return "Forbidden", 403
-    item = MenuItem.query.get_or_404(item_id)
 
-    item.is_available = not item.is_available
-    db.session.commit()
-
-    status = "Доступно" if item.is_available else "Недоступно"
-    flash(f'Блюдо "{item.name}" теперь {status}', 'success')
+    item = query_db("SELECT name, is_available FROM menu_items WHERE id = ?", [item_id], one=True)
+    if item:
+        new_status = 0 if item['is_available'] else 1
+        query_db("UPDATE menu_items SET is_available = ? WHERE id = ?", [new_status, item_id], commit=True)
+        status_text = "Доступно" if new_status else "Недоступно"
+        flash(f'Блюдо "{item["name"]}" теперь {status_text}', 'success')
     return redirect(url_for('cook_dashboard'))
 
+
+# ============ WAITER ROUTES ============
 
 @app.route('/waiter/dashboard')
 @login_required
@@ -428,16 +623,19 @@ def waiter_dashboard():
     if current_user.role != 'waiter':
         flash('Доступ запрещен', 'danger')
         return redirect(url_for('index'))
-    menu_items = MenuItem.query.filter_by(is_approved=True, is_available=True).all()
-    active_shift = Shift.query.filter_by(end_time=None).first()   # <-- добавить
+
+    menu_items = query_db_dict("SELECT * FROM menu_items WHERE is_approved = 1 AND is_available = 1")
+    active_shift = query_db_dict("SELECT * FROM shifts WHERE end_time IS NULL", one=True)
     return render_template('waiter_dashboard.html', menu_items=menu_items, active_shift=active_shift)
+
 
 @app.route('/waiter/create_order', methods=['POST'])
 @login_required
 def create_order():
     if current_user.role != 'waiter':
         return 'Forbidden', 403
-    active_shift = Shift.query.filter_by(end_time=None).first()
+
+    active_shift = query_db("SELECT id FROM shifts WHERE end_time IS NULL", one=True)
     if not active_shift:
         flash('Смена закрыта. Нельзя создать заказ.', 'danger')
         return redirect(url_for('waiter_dashboard'))
@@ -459,24 +657,28 @@ def create_order():
         flash('Не выбрано ни одно блюдо', 'danger')
         return redirect(url_for('waiter_dashboard'))
 
-    for menu_item_id, quantity in items.items():
-        menu_item = MenuItem.query.get(menu_item_id)
-        if not menu_item or not menu_item.is_available or not menu_item.is_approved:
-            flash(f'Блюдо {menu_item.name if menu_item else "?"} больше недоступно', 'danger')
-            db.session.rollback()
+    for menu_item_id in items:
+        item = query_db("SELECT name, is_available, is_approved FROM menu_items WHERE id = ?", [menu_item_id], one=True)
+        if not item or not item['is_available'] or not item['is_approved']:
+            flash(f'Блюдо {item["name"] if item else "?"} больше недоступно', 'danger')
             return redirect(url_for('waiter_dashboard'))
 
-    order = Order(waiter_id=current_user.id, table_number=int(table_number), status='waiting')
-    db.session.add(order)
-    db.session.commit()
+    order_id = query_db(
+        "INSERT INTO orders (waiter_id, table_number, status) VALUES (?, ?, 'waiting')",
+        [current_user.id, int(table_number)],
+        commit=True
+    )
 
     for menu_item_id, quantity in items.items():
-        order_item = OrderItem(order_id=order.id, menu_item_id=menu_item_id, quantity=quantity)
-        db.session.add(order_item)
+        query_db(
+            "INSERT INTO order_items (order_id, menu_item_id, quantity) VALUES (?, ?, ?)",
+            [order_id, menu_item_id, quantity],
+            commit=True
+        )
 
-    db.session.commit()
-    flash(f'Заказ №{order.id} создан для стола {table_number} и отправлен повару', 'success')
+    flash(f'Заказ №{order_id} создан для стола {table_number} и отправлен повару', 'success')
     return redirect(url_for('waiter_dashboard'))
+
 
 @app.route('/waiter/orders')
 @login_required
@@ -484,26 +686,59 @@ def waiter_orders():
     if current_user.role != 'waiter':
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
-    active_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status != 'completed').order_by(Order.created_at.desc()).all()
-    completed_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status == 'completed').order_by(Order.created_at.desc()).limit(20).all()
+
+    active_orders = query_db_dict("""
+        SELECT o.*, 
+               COALESCE((SELECT SUM(mi.price * oi.quantity) 
+                        FROM order_items oi 
+                        JOIN menu_items mi ON oi.menu_item_id = mi.id 
+                        WHERE oi.order_id = o.id), 0) as total_price
+        FROM orders o
+        WHERE o.waiter_id = ? AND o.status != 'completed'
+        ORDER BY o.created_at DESC
+    """, [current_user.id])
+
+    completed_orders = query_db_dict("""
+        SELECT o.*,
+               COALESCE((SELECT SUM(mi.price * oi.quantity) 
+                        FROM order_items oi 
+                        JOIN menu_items mi ON oi.menu_item_id = mi.id 
+                        WHERE oi.order_id = o.id), 0) as total_price
+        FROM orders o
+        WHERE o.waiter_id = ? AND o.status = 'completed'
+        ORDER BY o.created_at DESC
+        LIMIT 20
+    """, [current_user.id])
+
     return render_template('waiter_orders.html', active_orders=active_orders, completed_orders=completed_orders)
+
 
 @app.route('/waiter/complete_order/<int:order_id>', methods=['POST'])
 @login_required
 def complete_order(order_id):
     if current_user.role != 'waiter':
         return "Forbidden", 403
-    order = Order.query.get_or_404(order_id)
-    if order.waiter_id != current_user.id:
+
+    order = query_db("SELECT waiter_id, status FROM orders WHERE id = ?", [order_id], one=True)
+
+    if not order:
+        flash('Заказ не найден', 'danger')
+        return redirect(url_for('waiter_orders'))
+
+    if order['waiter_id'] != current_user.id:
         flash('Это не ваш заказ', 'danger')
         return redirect(url_for('waiter_orders'))
-    if order.status != 'ready':
+
+    if order['status'] != 'ready':
         flash('Заказ ещё не готов', 'warning')
         return redirect(url_for('waiter_orders'))
-    order.status = 'completed'
-    db.session.commit()
-    flash(f'Заказ №{order.id} завершён', 'success')
+
+    query_db("UPDATE orders SET status = 'completed' WHERE id = ?", [order_id], commit=True)
+    flash(f'Заказ №{order_id} завершён', 'success')
     return redirect(url_for('waiter_orders'))
+
+
+# ============ COMMON ROUTES ============
 
 @app.route('/')
 def index():
@@ -512,16 +747,13 @@ def index():
     else:
         return redirect(url_for('login'))
 
+
 @app.route('/home')
 @login_required
 def home():
     return render_template('home.html', user=current_user)
 
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
-
-
-
-
