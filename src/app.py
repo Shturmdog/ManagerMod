@@ -156,41 +156,7 @@ def delete_user(user_id):
     flash(f'Пользователь "{username}" удалён', 'success')
     return redirect(url_for('admin'))
 
-@app.route('/admin/pending_menu')
-@login_required
-def pending_menu():
-    if current_user.role != 'admin':
-        flash('Доступ запрещён', 'danger')
-        return redirect(url_for('index'))
-    pending_items = MenuItem.query.filter_by(is_approved=False).all()
-    return render_template('pending_menu.html', items=pending_items)
 
-# Утверждение блюда менеджером
-@app.route('/admin/approve_item/<int:item_id>', methods=['POST'])
-@login_required
-def approve_item(item_id):
-    if current_user.role != 'admin':
-        return "Forbidden", 403
-
-    item = MenuItem.query.get_or_404(item_id)
-    item.is_approved = True
-    item.approved_by = current_user.id
-    item.approved_at = db.func.now()
-    db.session.commit()
-    flash(f'Блюдо "{item.name}" утверждено', 'success')
-    return redirect(url_for('pending_menu'))
-
-@app.route('/admin/reject_item/<int:item_id>', methods=['POST'])
-@login_required
-def reject_item(item_id):
-    if current_user.role != 'admin':
-        return "Forbidden", 403
-    item = MenuItem.query.get_or_404(item_id)
-    name = item.name
-    db.session.delete(item)
-    db.session.commit()
-    flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
-    return redirect(url_for('pending_menu'))
 
 #Cook
 @app.route('/cook/dashboard')
