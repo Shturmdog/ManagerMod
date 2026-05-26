@@ -1,17 +1,24 @@
-<!-- templates/manager.html -->
+<!-- templates/admin.html -->
 <!DOCTYPE html>
 <html>
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>Менеджер пользователей</title>
+    <title>Панель администратора</title>
 </head>
 <body>
 <div class="container">
-    <h1>Панель менеджера (администратора)</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h1>Панель администратора</h1>
     <p>Вы вошли как: {{ current_user.username }}</p>
     <div class="nav-links">
         <a href="{{ url_for('logout') }}">Выйти</a>
-        <a href="{{ url_for('pending_menu') }}">✅ Утвердить блюда</a>
     </div>
 
     <h2>Создать нового пользователя</h2>
@@ -19,7 +26,7 @@
         <input type="text" name="username" placeholder="Имя пользователя" required>
         <input type="password" name="password" placeholder="Пароль" required>
         <select name="role">
-            <option value="user">Пользователь</option>
+            <option value="manager">Менеджер</option>
             <option value="admin">Администратор</option>
             <option value="cook">Повар</option>
             <option value="waiter">Официант</option>
@@ -34,7 +41,7 @@
                 <span>{{ user.username }} ({{ user.role }})</span>
                 {% if user.id != current_user.id %}
                 <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user.username }}?');">
-                    <button type="submit" style="background-color: #e74c3c; padding: 4px 12px;">🗑️ Удалить</button>
+                    <button type="submit" style="background-color: #e74c3c; padding: 4px 12px;">Удалить</button>
                 </form>
                 {% else %}
                     <span style="color: gray;">(Это вы)</span>
