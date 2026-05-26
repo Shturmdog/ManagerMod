@@ -243,7 +243,7 @@ def approve_item(item_id):
     item.approved_at = db.func.now()
     db.session.commit()
     flash(f'Блюдо "{item.name}" утверждено', 'success')
-    return redirect(url_for('pending_menu'))
+    return redirect(url_for('manager_dashboard'))
 
 @app.route('/manager_dashboard/reject_item/<int:item_id>', methods=['POST'])
 @login_required
@@ -255,7 +255,7 @@ def reject_item(item_id):
     db.session.delete(item)
     db.session.commit()
     flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
-    return redirect(url_for('pending_menu'))
+    return redirect(url_for('manager_dashboard'))
 
 @app.route('/manager_dashboard/shift_stats')
 @login_required
@@ -337,7 +337,7 @@ def cook_dashboard():
 @app.route('/cook/create_menu', methods=['GET', 'POST'])
 @login_required
 def create_menu():
-    if current_user.role not in ['cook', 'admin']:
+    if current_user.role not in 'cook':
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('index'))
 
