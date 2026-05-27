@@ -35,13 +35,13 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
 
+
 class Table(db.Model):
     __tablename__ = 'tables'
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.Integer, unique=True, nullable=False)
     capacity = db.Column(db.Integer, default=2)
     status = db.Column(db.String(20), default='free')
-
 
 
 class MenuItem(db.Model):
@@ -63,6 +63,7 @@ class MenuItem(db.Model):
     creator = db.relationship('User', foreign_keys=[created_by])
     approver = db.relationship('User', foreign_keys=[approved_by])
 
+
 class Order(db.Model):
     __tablename__ = 'orders'
     id = db.Column(db.Integer, primary_key=True)
@@ -80,6 +81,7 @@ class Order(db.Model):
     def total_price(self):
         return sum(item.menu_item.price * item.quantity for item in self.items)
 
+
 class OrderItem(db.Model):
     __tablename__ = 'order_items'
     id = db.Column(db.Integer, primary_key=True)
@@ -89,6 +91,7 @@ class OrderItem(db.Model):
 
     order = db.relationship('Order', backref='items')
     menu_item = db.relationship('MenuItem', backref='order_items')
+
 
 class Shift(db.Model):
     __tablename__ = 'shifts'
@@ -141,6 +144,7 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
 
+
 #login page
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -164,6 +168,7 @@ def login():
             flash('Неверное имя или пароль', 'danger')
     return render_template('login.html')
 
+
 #Logout of the system
 @app.route('/logout')
 @login_required
@@ -180,6 +185,7 @@ def admin():
         return redirect(url_for('index'))
     users = User.query.all()
     return render_template('admin.html', users=users)
+
 
 #Creating a new user
 @app.route('/admin/create_user', methods=['POST'])
@@ -218,6 +224,7 @@ def delete_user(user_id):
     flash(f'Пользователь "{username}" удалён', 'success')
     return redirect(url_for('admin'))
 
+
 #Manager
 @app.route('/manager/dashboard')
 @login_required
@@ -245,6 +252,7 @@ def approve_item(item_id):
     flash(f'Блюдо "{item.name}" утверждено', 'success')
     return redirect(url_for('manager_dashboard'))
 
+
 @app.route('/manager_dashboard/reject_item/<int:item_id>', methods=['POST'])
 @login_required
 def reject_item(item_id):
@@ -257,6 +265,7 @@ def reject_item(item_id):
     flash(f'Блюдо "{name}" отклонено и удалено', 'warning')
     return redirect(url_for('manager_dashboard'))
 
+
 @app.route('/manager_dashboard/shift_stats')
 @login_required
 def shift_stats():
@@ -265,6 +274,7 @@ def shift_stats():
         return redirect(url_for('index'))
     shifts = Shift.query.filter(Shift.end_time.isnot(None)).order_by(Shift.end_time.desc()).all()
     return render_template('shift_stats.html', shifts=shifts)
+
 
 @app.route('/manager_dashboard/open_shift', methods=['POST'])
 @login_required
@@ -280,6 +290,7 @@ def open_shift():
         db.session.commit()
         flash('Новая смена открыта', 'success')
     return redirect(url_for('manager_dashboard'))
+
 
 @app.route('/manager_dashboard/close_shift', methods=['POST'])
 @login_required
@@ -312,6 +323,7 @@ def close_shift():
 
     flash(f'Смена закрыта. Выручка: {total_revenue} руб., лучшее блюдо: {best_dish}, лучший официант: {best_waiter}', 'success')
     return redirect(url_for('manager_dashboard'))
+
 
 #Cook
 @app.route('/cook/dashboard')
@@ -371,6 +383,7 @@ def create_menu():
 
     return render_template('create_menu.html')
 
+
 @app.route('/cook/start_cooking/<int:order_id>', methods=['POST'])
 @login_required
 def start_cooking(order_id):
@@ -389,6 +402,7 @@ def start_cooking(order_id):
         flash('Невозможно начать готовку', 'warning')
     return redirect(url_for('cook_dashboard'))
 
+
 @app.route('/cook/mark_ready/<int:order_id>', methods=['POST'])
 @login_required
 def mark_ready(order_id):
@@ -406,6 +420,7 @@ def mark_ready(order_id):
     else:
         flash('Некорректный статус', 'warning')
     return redirect(url_for('cook_dashboard'))
+
 
 @app.route('/cook/toggle_availability/<int:item_id>', methods=['POST'])
 @login_required
@@ -431,6 +446,7 @@ def waiter_dashboard():
     menu_items = MenuItem.query.filter_by(is_approved=True, is_available=True).all()
     active_shift = Shift.query.filter_by(end_time=None).first()   # <-- добавить
     return render_template('waiter_dashboard.html', menu_items=menu_items, active_shift=active_shift)
+
 
 @app.route('/waiter/create_order', methods=['POST'])
 @login_required
@@ -478,6 +494,7 @@ def create_order():
     flash(f'Заказ №{order.id} создан для стола {table_number} и отправлен повару', 'success')
     return redirect(url_for('waiter_dashboard'))
 
+
 @app.route('/waiter/orders')
 @login_required
 def waiter_orders():
@@ -487,6 +504,7 @@ def waiter_orders():
     active_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status != 'completed').order_by(Order.created_at.desc()).all()
     completed_orders = Order.query.filter(Order.waiter_id == current_user.id, Order.status == 'completed').order_by(Order.created_at.desc()).limit(20).all()
     return render_template('waiter_orders.html', active_orders=active_orders, completed_orders=completed_orders)
+
 
 @app.route('/waiter/complete_order/<int:order_id>', methods=['POST'])
 @login_required
@@ -505,12 +523,14 @@ def complete_order(order_id):
     flash(f'Заказ №{order.id} завершён', 'success')
     return redirect(url_for('waiter_orders'))
 
+
 @app.route('/')
 def index():
     if current_user.is_authenticated:
         return render_template('index.html', user=current_user)
     else:
         return redirect(url_for('login'))
+
 
 @app.route('/home')
 @login_required
