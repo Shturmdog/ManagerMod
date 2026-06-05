@@ -4,6 +4,7 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Панель повара</title>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -18,8 +19,8 @@
     <h1>Панель повара</h1>
     <p>Здравствуйте, {{ current_user.username }}!</p>
     <div class="nav-links">
-        <a href="{{ url_for('logout') }}">Выйти</a>
-        <a href="{{ url_for('create_menu') }}">Создать блюдо</a>
+        <a href="{{ url_for('login.logout') }}">Выйти</a>
+        <a href="{{ url_for('cook.create_menu') }}">Создать блюдо</a>
     </div>
     <hr>
 
@@ -41,7 +42,7 @@
             {% endfor %}
             </ul>
             {% if active_shift %}
-            <form method="POST" action="{{ url_for('start_cooking', order_id=order.id) }}">
+            <form method="POST" action="{{ url_for('cook.start_cooking', order_id=order.id) }}">
                 <button type="submit">Начать готовить</button>
             </form>
             {% else %}
@@ -65,7 +66,7 @@
             {% endfor %}
             </ul>
             {% if active_shift %}
-            <form method="POST" action="{{ url_for('mark_ready', order_id=order.id) }}">
+            <form method="POST" action="{{ url_for('cook.mark_ready', order_id=order.id) }}">
                 <button type="submit">Готово</button>
             </form>
             {% else %}
@@ -105,7 +106,7 @@
                 {% else %}
                     <span style="color:red;">Недоступно</span>
                 {% endif %}
-                <form method="POST" action="{{ url_for('toggle_availability', item_id=dish.id) }}" style="display:inline;">
+                <form method="POST" action="{{ url_for('cook.toggle_availability', item_id=dish.id) }}" style="display:inline;">
                     <button type="submit">
                         {% if dish.is_available %}Сделать недоступным{% else %}Сделать доступным{% endif %}
                     </button>

@@ -4,6 +4,7 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Панель администратора</title>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -18,11 +19,11 @@
     <h1>Панель администратора</h1>
     <p>Вы вошли как: {{ current_user.username }}</p>
     <div class="nav-links">
-        <a href="{{ url_for('logout') }}">Выйти</a>
+        <a href="{{ url_for('login.logout') }}">Выйти</a>
     </div>
 
     <h2>Создать нового пользователя</h2>
-    <form method="POST" action="{{ url_for('create_user') }}">
+    <form method="POST" action="{{ url_for('admin.create_user') }}">
         <input type="text" name="username" placeholder="Имя пользователя" required>
         <input type="password" name="password" placeholder="Пароль" required>
         <select name="role">
@@ -40,7 +41,7 @@
             <li style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                 <span>{{ user.username }} ({{ user.role }})</span>
                 {% if user.id != current_user.id %}
-                <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user.username }}?');">
+                <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" onsubmit="return confirm('Вы уверены, что хотите удалить пользователя {{ user.username }}?');">
                     <button type="submit" style="background-color: #e74c3c; padding: 4px 12px;">Удалить</button>
                 </form>
                 {% else %}

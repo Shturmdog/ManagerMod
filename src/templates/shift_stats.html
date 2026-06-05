@@ -4,6 +4,7 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>История смен</title>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -17,8 +18,8 @@
 
     <h1>История закрытых смен</h1>
     <div class="nav-links">
-        <a href="{{ url_for('manager_dashboard') }}">Назад</a>
-        <a href="{{ url_for('logout') }}">Выйти</a>
+        <a href="{{ url_for('manager.manager_dashboard') }}">Назад</a>
+        <a href="{{ url_for('login.logout') }}">Выйти</a>
     </div>
     {% if shifts %}
         <table class="data-table">

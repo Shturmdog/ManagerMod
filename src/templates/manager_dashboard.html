@@ -4,6 +4,7 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Панель менеджера</title>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -18,8 +19,8 @@
     <h1>Панель менеджера</h1>
     <p>Здравствуйте, {{ current_user.username }}!</p>
     <div class="nav-links">
-        <a href="{{ url_for('logout') }}">Выйти</a>
-        <a href="{{ url_for('shift_stats') }}">История смен</a>
+        <a href="{{ url_for('login.logout') }}">Выйти</a>
+        <a href="{{ url_for('manager.shift_stats') }}">История смен</a>
     </div>
     <hr>
 
@@ -37,10 +38,10 @@
                     <td>{{ item.category }}</td>
                     <td>{{ item.creator.username if item.creator else item.created_by }}</td>
                     <td>
-                        <form method="POST" action="{{ url_for('approve_item', item_id=item.id) }}" style="display:inline;">
+                        <form method="POST" action="{{ url_for('manager.approve_item', item_id=item.id) }}" style="display:inline;">
                             <button type="submit" style="background-color:#2ecc71;">Утвердить</button>
                         </form>
-                        <form method="POST" action="{{ url_for('reject_item', item_id=item.id) }}" style="display:inline;">
+                        <form method="POST" action="{{ url_for('manager.reject_item', item_id=item.id) }}" style="display:inline;">
                             <button type="submit" style="background-color:#e74c3c;">Отклонить</button>
                         </form>
                     </td>
@@ -56,15 +57,15 @@
     <h2>Управление сменой</h2>
     {% if active_shift %}
         <p>Смена <strong>открыта</strong> с {{ active_shift.start_time.strftime('%d.%m.%Y %H:%M') }}</p>
-        <form method="POST" action="{{ url_for('close_shift') }}" onsubmit="return confirm('Закрыть смену? Статистика будет сохранена, а все завершённые заказы будут удалены.');">
+        <form method="POST" action="{{ url_for('manager.close_shift') }}" onsubmit="return confirm('Закрыть смену? Статистика будет сохранена, а все завершённые заказы будут удалены.');">
             <button type="submit" style="background-color:#e67e22;">Закрыть смену</button>
         </form>
     {% else %}
         <p>Смена <strong>закрыта</strong> (нет активной смены).</p>
-        <form method="POST" action="{{ url_for('open_shift') }}">
+        <form method="POST" action="{{ url_for('manager.open_shift') }}">
             <button type="submit" style="background-color:#27ae60;">Открыть новую смену</button>
         </form>
-        <form method="POST" action="{{ url_for('close_shift') }}" style="margin-top: 10px;">
+        <form method="POST" action="{{ url_for('manager.close_shift') }}" style="margin-top: 10px;">
             <button type="submit" style="background-color:#e67e22;" onclick="return confirm('В данный момент нет активной смены. Всё равно завершить смену (это просто создаст запись в истории без данных)?');">
                 Закрыть смену (без активной)
             </button>

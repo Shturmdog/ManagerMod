@@ -4,6 +4,7 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Мои заказы | Официант</title>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -18,8 +19,8 @@
     <h1>Мои активные заказы</h1>
     <div class="nav-links">
         <span>Официант: <strong>{{ current_user.username }}</strong></span>
-        <a href="{{ url_for('waiter_dashboard') }}">Новый заказ</a>
-        <a href="{{ url_for('logout') }}">Выйти</a>
+        <a href="{{ url_for('waiter.waiter_dashboard') }}">Новый заказ</a>
+        <a href="{{ url_for('login.logout') }}">Выйти</a>
     </div>
 
     {% if active_orders %}
@@ -43,7 +44,7 @@
                     {% endfor %}
                 </ul>
                 {% if order.status == 'ready' %}
-                    <form method="POST" action="{{ url_for('complete_order', order_id=order.id) }}">
+                    <form method="POST" action="{{ url_for('waiter.complete_order', order_id=order.id) }}">
                         <button type="submit" style="background-color: #27ae60;">Забрал (заказ завершён)</button>
                     </form>
                 {% endif %}
@@ -52,7 +53,7 @@
     {% else %}
         <div class="card" style="text-align: center;">
             <p>У вас пока нет активных заказов.</p>
-            <p><a href="{{ url_for('waiter_dashboard') }}" class="link-button">Создать новый заказ</a></p>
+            <p><a href="{{ url_for('waiter.waiter_dashboard') }}" class="link-button">Создать новый заказ</a></p>
         </div>
     {% endif %}
 </div>

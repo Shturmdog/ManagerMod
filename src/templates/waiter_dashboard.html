@@ -1,9 +1,10 @@
-<!-- templates/waiter_dashboard.html -->
+<!-- templates/shift_stats.html -->
 <!DOCTYPE html>
 <html>
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>Панель официанта</title>
+    <title>История смен</title>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -15,43 +16,32 @@
         {% endif %}
     {% endwith %}
 
-    <h1>Создание заказа</h1>
+    <h1>История закрытых смен</h1>
     <div class="nav-links">
-        <span>Официант: <strong>{{ current_user.username }}</strong></span>
-        <a href="{{ url_for('waiter_orders') }}">Мои заказы</a>
-        <a href="{{ url_for('logout') }}">Выйти</a>
+        <a href="{{ url_for('manager.manager_dashboard') }}">Назад</a>
+        <a href="{{ url_for('login.logout') }}">Выйти</a>
     </div>
-
-    {% if not active_shift %}
-        <div class="alert alert-warning" style="background-color: #fcf8e3; border-left: 4px solid #8a6d3b; padding: 15px; margin: 15px 0;">
-            Внимание! Смена закрыта. Невозможно создать новый заказ. Обратитесь к менеджеру.
-        </div>
-    {% endif %}
-
-    <form method="POST" action="{{ url_for('create_order') }}">
-        <label for="table_number">Номер столика:</label>
-        <input type="number" name="table_number" id="table_number" min="1" required {% if not active_shift %}disabled{% endif %}>
-
-        <h2>Доступные блюда</h2>
+    {% if shifts %}
         <table class="data-table">
             <thead>
-                <tr><th>Блюдо</th><th>Цена</th><th>Количество</th></tr>
+                <tr><th>Дата открытия</th><th>Дата закрытия</th><th>Выручка</th><th>Лучшее блюдо</th><th>Лучший официант</th><th>Закрыл</th></tr>
             </thead>
             <tbody>
-                {% for item in menu_items %}
+            {% for shift in shifts %}
                 <tr>
-                    <td data-label="Блюдо">{{ item.name }} {% if not item.is_available %}(временно недоступно){% endif %}</td>
-                    <td data-label="Цена">{{ item.price }} руб.</td>
-                    <td data-label="Количество">
-                        <input type="number" name="qty_{{ item.id }}" value="0" min="0" style="width:70px;"
-                               {% if not active_shift or not item.is_available %}disabled{% endif %}>
-                    </td>
+                    <td>{{ shift.start_time.strftime('%d.%m.%Y %H:%M') }}</td>
+                    <td>{{ shift.end_time.strftime('%d.%m.%Y %H:%M') }}</td>
+                    <td>{{ shift.total_revenue }} руб.</td>
+                    <td>{{ shift.best_dish or '—' }}</td>
+                    <td>{{ shift.best_waiter or '—' }}</td>
+                    <td>{{ shift.closer.username if shift.closer else '—' }}</td>
                 </tr>
-                {% endfor %}
+            {% endfor %}
             </tbody>
         </table>
-        <button type="submit" {% if not active_shift %}disabled{% endif %}>Оформить заказ</button>
-    </form>
+    {% else %}
+        <p>Пока нет закрытых смен.</p>
+    {% endif %}
 </div>
 </body>
 </html>

@@ -4,6 +4,7 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <title>Главная страница</title>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -19,20 +20,20 @@
     {% if current_user.is_authenticated %}
         <p>Вы вошли как {{ current_user.username }}</p>
         <div class="nav-links">
-            <a href="{{ url_for('logout') }}">Выйти</a>
+            <a href="{{ url_for('login.logout') }}">Выйти</a>
             {% if current_user.role == 'admin' %}
-                <a href="{{ url_for('admin') }}">Панель администратора</a>
+                <a href="{{ url_for('admin.admin') }}">Панель администратора</a>
             {% elif current_user.role == 'manager' %}
-                <a href="{{ url_for('manager_dashboard') }}">Панель менеджера</a>
+                <a href="{{ url_for('manager.manager_dashboard') }}">Панель менеджера</a>
             {% elif current_user.role == 'cook' %}
-                <a href="{{ url_for('cook_dashboard') }}">Панель повара</a>
+                <a href="{{ url_for('cook.cook_dashboard') }}">Панель повара</a>
             {% elif current_user.role == 'waiter' %}
-                <a href="{{ url_for('waiter_dashboard') }}">Панель официанта</a>
+                <a href="{{ url_for('waiter.waiter_dashboard') }}">Панель официанта</a>
             {% endif %}
         </div>
     {% else %}
         <div class="nav-links">
-            <a href="{{ url_for('login') }}">Войти</a>
+            <a href="{{ url_for('login.login') }}">Войти</a>
         </div>
     {% endif %}
 </div>
