@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    environment:
+      SECRET_KEY: change-me-in-production
+      SQLALCHEMY_DATABASE_URI: sqlite:////data/managermod.db
+    ports:
+      - "5000:5000"
+    volumes:
+      - app-data:/data
+
+volumes:
+  app-data:
